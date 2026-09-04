@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import * as crypto from 'crypto';
 
 export function activate(context: vscode.ExtensionContext) {
     // 1. Register Open Customizer Command
@@ -1109,85 +1108,6 @@ export function blendColor(hex: string, baseHex: string, ratio: number): string 
     return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
 
-export function findWorkbenchHtml(): string | null {
-    const roots = [
-        path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Microsoft VS Code'),
-        path.join(process.env.ProgramFiles || '', 'Microsoft VS Code'),
-        path.join(process.env['ProgramFiles(x86)'] || '', 'Microsoft VS Code')
-    ];
-
-    for (const r of roots) {
-        if (!fs.existsSync(r)) continue;
-        const relCandidates = [
-            path.join('resources', 'app', 'out', 'vs', 'code', 'electron-browser', 'workbench', 'workbench.html'),
-            path.join('resources', 'app', 'out', 'vs', 'code', 'electron-sandbox', 'workbench', 'workbench.html')
-        ];
-        for (const rc of relCandidates) {
-            const p = path.join(r, rc);
-            if (fs.existsSync(p)) return p;
-        }
-        try {
-            const items = fs.readdirSync(r);
-            for (const item of items) {
-                const sub = path.join(r, item);
-                if (fs.statSync(sub).isDirectory()) {
-                    for (const rc of relCandidates) {
-                        const p = path.join(sub, rc);
-                        if (fs.existsSync(p)) return p;
-                    }
-                }
-            }
-        } catch (e) {}
-    }
-    return null;
-}
-
-export async function patchWorkbenchHtmlWithChecksum(cssContent: string) {
-    try {
-        const htmlPath = findWorkbenchHtml();
-        if (!htmlPath) return;
-
-        const productPath = path.resolve(path.dirname(htmlPath), '../../../../../product.json');
-
-        // Backup original product.json if not present
-        const productBackup = productPath + '.nitro-orig';
-        if (!fs.existsSync(productBackup) && fs.existsSync(productPath)) {
-            await fs.promises.copyFile(productPath, productBackup);
-        }
-
-        // Backup original workbench.html if not present
-        const htmlBackup = htmlPath + '.nitro-orig';
-        if (!fs.existsSync(htmlBackup)) {
-            await fs.promises.copyFile(htmlPath, htmlBackup);
-        }
-
-        // 1. Read base clean html from backup if available, else from file
-        const sourceHtml = fs.existsSync(htmlBackup) ? await fs.promises.readFile(htmlBackup, 'utf-8') : await fs.promises.readFile(htmlPath, 'utf-8');
-        let html = sourceHtml.replace(/<!-- !! GRADIENT-NITRO-CSS-START !! -->[\s\S]*?<!-- !! GRADIENT-NITRO-CSS-END !! -->\n*/g, '');
-        const patchBlock = `<!-- !! GRADIENT-NITRO-CSS-START !! -->\n<style id="gradient-nitro-custom-css">\n${cssContent}\n</style>\n<!-- !! GRADIENT-NITRO-CSS-END !! -->\n`;
-        html = html.replace('</head>', `${patchBlock}</head>`);
-
-        // 2. Write patched workbench.html
-        await fs.promises.writeFile(htmlPath, html, 'utf-8');
-
-        // 3. Compute sha256 checksum and update product.json so VS Code NEVER reports corruption!
-        if (fs.existsSync(productPath)) {
-            const fileBuf = await fs.promises.readFile(htmlPath);
-            const newHash = crypto.createHash('sha256').update(fileBuf).digest('base64').replace(/=+$/, '');
-            
-            const prodContent = await fs.promises.readFile(productPath, 'utf-8');
-            const prod = JSON.parse(prodContent);
-            if (!prod.checksums) prod.checksums = {};
-            
-            prod.checksums['vs/code/electron-browser/workbench/workbench.html'] = newHash;
-            
-            await fs.promises.writeFile(productPath, JSON.stringify(prod, null, '\t'), 'utf-8');
-        }
-    } catch (err) {
-        console.error('Failed to patch workbench.html with checksum:', err);
-    }
-}
-
 export async function applyCustomTheme(cfg: ThemeConfig) {
     const nitroConfig = vscode.workspace.getConfiguration('gradientNitro');
     await nitroConfig.update('colorStops', cfg.colorStops, vscode.ConfigurationTarget.Global);
@@ -1684,11 +1604,8 @@ div.monaco-workbench .part.editor > .content .editor-group-container {
 }
 `;
 
-        // 1. Write custom.css
+        // Write custom.css
         await fs.promises.writeFile(customCssPath, cssContent, 'utf-8');
-
-        // 2. Patch workbench.html AND update product.json checksums simultaneously!
-        await patchWorkbenchHtmlWithChecksum(cssContent);
     } catch (err) {
         console.error('Failed to update CSS and patch workbench:', err);
     }
