@@ -1319,7 +1319,6 @@ export async function updateCustomCssFile(cfg: ThemeConfig) {
         const appData = process.env.APPDATA || (process.platform === 'darwin' ? path.join(os.homedir(), 'Library', 'Application Support') : path.join(os.homedir(), '.config'));
         const customCssPath = path.join(appData, 'Code', 'User', 'custom.css');
 
-        const isLight = cfg.themeMode === 'light';
         const stops = cfg.colorStops && cfg.colorStops.length >= 2 ? cfg.colorStops : [
             { color: cfg.leftColor || '#28A12F', offset: 0 },
             { color: '#00D2FF', offset: 35 },
@@ -1334,169 +1333,299 @@ export async function updateCustomCssFile(cfg: ThemeConfig) {
         const neonSpread = cfg.neonGlowSpread || 28;
         const glassOpacity = cfg.glassOpacity || 0.88;
 
-        const gradientStops = stops.map(s => {
+        // Dark stops
+        const darkGradientStops = stops.map(s => {
             const rgb = hexToRgb(s.color);
-            const alpha = isLight ? Math.min(0.65, intensity * 1.65) : Math.min(0.70, intensity * 1.25);
-            return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha}) ${s.offset}%`;
+            return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${Math.min(0.70, intensity * 1.25)}) ${s.offset}%`;
         }).join(', ');
 
-        const cardGradientStops = stops.map(s => {
+        const darkCardStops = stops.map(s => {
             const rgb = hexToRgb(s.color);
-            const alpha = isLight ? 0.08 : 0.12;
-            return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha}) ${s.offset}%`;
+            return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.12) ${s.offset}%`;
         }).join(', ');
 
-        const activeTabGradientStops = stops.map(s => {
+        const darkActiveTabStops = stops.map(s => {
             const rgb = hexToRgb(s.color);
-            const alpha = isLight ? 0.38 : 0.30;
-            return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha}) ${s.offset}%`;
+            return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.30) ${s.offset}%`;
         }).join(', ');
 
-        const hoverTabGradientStops = stops.map(s => {
+        const darkHoverTabStops = stops.map(s => {
             const rgb = hexToRgb(s.color);
-            const alpha = isLight ? 0.22 : 0.18;
-            return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha}) ${s.offset}%`;
+            return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.18) ${s.offset}%`;
         }).join(', ');
 
-        const baseBg = isLight ? '#f2faf6' : '#101216';
-        const panelHoverBg = isLight ? `rgba(255, 255, 255, ${glassOpacity})` : `rgba(22, 26, 32, ${glassOpacity})`;
+        // Light stops (soft pastel with high contrast foundation)
+        const lightGradientStops = stops.map(s => {
+            const rgb = hexToRgb(s.color);
+            return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${Math.min(0.20, intensity * 0.50)}) ${s.offset}%`;
+        }).join(', ');
+
+        const lightCardStops = stops.map(s => {
+            const rgb = hexToRgb(s.color);
+            return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.05) ${s.offset}%`;
+        }).join(', ');
+
+        const lightActiveTabStops = stops.map(s => {
+            const rgb = hexToRgb(s.color);
+            return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.15) ${s.offset}%`;
+        }).join(', ');
+
         const rgb1 = hexToRgb(stops[0].color);
         const rgbLast = hexToRgb(stops[stops.length - 1].color);
 
         const cssContent = `/* ==========================================================================
-   GRADIENT NITRO GLASS ENGINE - CLEAN LAYOUT & ULTRA HIGH CONTRAST
+   GRADIENT NITRO GLASS ENGINE - ADAPTIVE DUAL-MODE (DARK & LIGHT)
    ========================================================================== */
 
-/* ── 1. Whole-Page Multi-Stop Gradient Canvas ─────────────────────────── */
-body,
-.monaco-workbench {
-    background: linear-gradient(${angle}deg, ${gradientStops}) !important;
-    background-color: ${baseBg} !important;
+/* ── 1. DARK MODE CANVAS & LAYERS ─────────────────────────────────────── */
+body.vscode-dark,
+.monaco-workbench.vs-dark {
+    background: linear-gradient(${angle}deg, ${darkGradientStops}) !important;
+    background-color: #101216 !important;
 }
 
-/* ── 2. Transparent Monaco Layers (Gradient Flows Through Code) ───────── */
-.monaco-workbench .part.editor,
-.monaco-workbench .part.editor > .content,
-.monaco-workbench .part.editor .editor-group-container > .editor-container,
-.monaco-workbench .part.editor .editor-instance,
-.monaco-workbench .part.editor .split-view-container,
-.monaco-workbench .part.editor .split-view-view,
-.monaco-editor,
-.monaco-editor-pane,
-.monaco-editor .overflow-guard,
-.monaco-editor .monaco-editor-background,
-.monaco-editor .margin,
-.monaco-editor .glyph-margin,
-.monaco-editor .lines-content,
-.monaco-editor .view-lines,
-.monaco-editor .view-line,
-.monaco-editor .view-overlays,
-.monaco-editor .monaco-scrollable-element,
-.monaco-editor .decorationsOverviewRuler,
-.monaco-editor .sticky-widget,
-.monaco-editor .sticky-widget-lines,
-.monaco-editor .sticky-widget-line-numbers,
-.monaco-editor .inputarea.ime-input {
+.monaco-workbench.vs-dark .part.editor,
+.monaco-workbench.vs-dark .part.editor > .content,
+.monaco-workbench.vs-dark .part.editor .editor-group-container > .editor-container,
+.monaco-workbench.vs-dark .part.editor .editor-instance,
+.monaco-workbench.vs-dark .part.editor .split-view-container,
+.monaco-workbench.vs-dark .part.editor .split-view-view,
+.monaco-workbench.vs-dark .monaco-editor,
+.monaco-workbench.vs-dark .monaco-editor-pane,
+.monaco-workbench.vs-dark .monaco-editor .overflow-guard,
+.monaco-workbench.vs-dark .monaco-editor .monaco-editor-background,
+.monaco-workbench.vs-dark .monaco-editor .margin,
+.monaco-workbench.vs-dark .monaco-editor .glyph-margin,
+.monaco-workbench.vs-dark .monaco-editor .lines-content,
+.monaco-workbench.vs-dark .monaco-editor .view-lines,
+.monaco-workbench.vs-dark .monaco-editor .view-line,
+.monaco-workbench.vs-dark .monaco-editor .view-overlays,
+.monaco-workbench.vs-dark .monaco-editor .monaco-scrollable-element,
+.monaco-workbench.vs-dark .monaco-editor .decorationsOverviewRuler,
+.monaco-workbench.vs-dark .monaco-editor .sticky-widget,
+.monaco-workbench.vs-dark .monaco-editor .sticky-widget-lines,
+.monaco-workbench.vs-dark .monaco-editor .sticky-widget-line-numbers,
+.monaco-workbench.vs-dark .monaco-editor .inputarea.ime-input {
     background: transparent !important;
     background-color: transparent !important;
 }
 
-/* ── 3. Rounded Floating Editor Windows (Code Cards) ──────────────────── */
-.monaco-workbench .part.editor .editor-group-container,
-div.monaco-workbench .part.editor > .content .editor-group-container {
-    background: linear-gradient(${angle}deg, ${cardGradientStops}), ${isLight ? 'rgba(255, 255, 255, 0.42)' : 'rgba(18, 22, 28, 0.52)'} !important;
+.monaco-workbench.vs-dark .part.editor .editor-group-container {
+    background: linear-gradient(${angle}deg, ${darkCardStops}), rgba(18, 22, 28, 0.52) !important;
     backdrop-filter: blur(14px) !important;
     -webkit-backdrop-filter: blur(14px) !important;
     border-radius: ${radius}px !important;
-    border: ${radius > 0 ? (isLight ? '1px solid rgba(255, 255, 255, 0.80)' : '1px solid rgba(255, 255, 255, 0.12)') : 'none'} !important;
+    border: ${radius > 0 ? '1px solid rgba(255, 255, 255, 0.12)' : 'none'} !important;
     overflow: hidden !important;
-    box-shadow: ${radius > 0 ? (isLight ? '0 10px 30px rgba(0, 0, 0, 0.08)' : '0 14px 36px rgba(0, 0, 0, 0.52)') : 'none'} !important;
+    box-shadow: ${radius > 0 ? '0 14px 36px rgba(0, 0, 0, 0.52)' : 'none'} !important;
 }
 
-/* ── 4. Editor Tab Bar Header & Actions (Cascade Gradient Glass) ──────── */
-.monaco-workbench .part.editor .title,
-.monaco-workbench .part.editor .title.tabs,
-.monaco-workbench .part.editor .editor-group-container > .title,
-.monaco-workbench .part.editor .tabs-and-actions-container,
-.monaco-workbench .part.editor .tabs-breadcrumbs-container,
-.monaco-workbench .part.editor .editor-group-header,
-.monaco-workbench .part.editor .editor-group-header.tabs {
-    background: linear-gradient(${angle}deg, ${cardGradientStops}), ${isLight ? 'rgba(255, 255, 255, 0.38)' : 'rgba(15, 18, 24, 0.44)'} !important;
+.monaco-workbench.vs-dark .part.editor .title,
+.monaco-workbench.vs-dark .part.editor .title.tabs,
+.monaco-workbench.vs-dark .part.editor .editor-group-container > .title,
+.monaco-workbench.vs-dark .part.editor .tabs-and-actions-container,
+.monaco-workbench.vs-dark .part.editor .tabs-breadcrumbs-container,
+.monaco-workbench.vs-dark .part.editor .editor-group-header {
+    background: linear-gradient(${angle}deg, ${darkCardStops}), rgba(15, 18, 24, 0.44) !important;
     background-color: transparent !important;
-    border-bottom: 1px solid ${isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)'} !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
     backdrop-filter: blur(12px) !important;
     -webkit-backdrop-filter: blur(12px) !important;
 }
 
-.monaco-workbench .part.editor .tabs-container,
-.monaco-workbench .part.editor .editor-actions,
-.monaco-workbench .part.editor .title .editor-actions,
-.monaco-workbench .part.editor .tabs-and-actions-container .monaco-scrollable-element {
-    background: transparent !important;
-    background-color: transparent !important;
-}
-
-/* ── 5. All Tabs (High Contrast, Rounded Floating Gradient Tabs) ──────── */
-.monaco-workbench .part.editor .tab {
-    background: transparent !important;
-    background-color: transparent !important;
-    border: none !important;
-    transition: all 0.15s ease !important;
-}
-
-/* Active Tab: Crisp, Solid Glass, High Contrast */
-.monaco-workbench .part.editor .tab.active,
-.monaco-workbench .part.editor .tabs-container > .tab.active,
-.monaco-workbench .part.editor .editor-group-container > .title .tabs-container > .tab.active {
-    background: linear-gradient(${angle}deg, ${activeTabGradientStops}), ${isLight ? 'rgba(255, 255, 255, 0.90)' : 'rgba(30, 36, 48, 0.88)'} !important;
-    background-color: transparent !important;
+.monaco-workbench.vs-dark .part.editor .tab.active {
+    background: linear-gradient(${angle}deg, ${darkActiveTabStops}), rgba(30, 36, 48, 0.88) !important;
     backdrop-filter: blur(16px) !important;
     -webkit-backdrop-filter: blur(16px) !important;
-    border: 1px solid ${isLight ? 'rgba(255, 255, 255, 0.95)' : 'rgba(255, 255, 255, 0.22)'} !important;
+    border: 1px solid rgba(255, 255, 255, 0.22) !important;
     border-top: 3px solid ${stops[0].color} !important;
     border-bottom: 1px solid transparent !important;
     border-radius: ${Math.min(8, radius)}px ${Math.min(8, radius)}px 0 0 !important;
     margin: 3px 2px 0 2px !important;
-    box-shadow: 0 4px 16px ${stops[0].color}40, inset 0 1px 1px rgba(255, 255, 255, 0.25) !important;
+    box-shadow: 0 4px 16px ${stops[0].color}40 !important;
 }
 
-/* Active Tab Text - MAXIMUM CONTRAST */
-.monaco-workbench .part.editor .tab.active .label-name,
-.monaco-workbench .part.editor .tab.active .tab-label a,
-.monaco-workbench .part.editor .tab.active .monaco-icon-label,
-.monaco-workbench .part.editor .tab.active .monaco-icon-name-container {
-    color: ${isLight ? '#000000' : '#ffffff'} !important;
+.monaco-workbench.vs-dark .part.editor .tab.active .label-name,
+.monaco-workbench.vs-dark .part.editor .tab.active .tab-label a,
+.monaco-workbench.vs-dark .part.editor .tab.active .monaco-icon-label {
+    color: #ffffff !important;
     font-weight: 700 !important;
     opacity: 1 !important;
 }
 
-/* Inactive Tab */
-.monaco-workbench .part.editor .tab:not(.active) {
-    background: ${isLight ? 'rgba(255, 255, 255, 0.24)' : 'rgba(0, 0, 0, 0.22)'} !important;
+.monaco-workbench.vs-dark .part.editor .tab:not(.active) {
+    background: rgba(0, 0, 0, 0.22) !important;
     border-radius: ${Math.min(8, radius)}px ${Math.min(8, radius)}px 0 0 !important;
     margin: 3px 2px 0 2px !important;
     border: 1px solid transparent !important;
 }
 
-/* Inactive Tab Text - SHARP, READABLE CONTRAST */
-.monaco-workbench .part.editor .tab:not(.active) .label-name,
-.monaco-workbench .part.editor .tab:not(.active) .tab-label a,
-.monaco-workbench .part.editor .tab:not(.active) .monaco-icon-label,
-.monaco-workbench .part.editor .tab:not(.active) .monaco-icon-name-container {
-    color: ${isLight ? '#1e293b' : '#e2e8f0'} !important;
+.monaco-workbench.vs-dark .part.editor .tab:not(.active) .label-name,
+.monaco-workbench.vs-dark .part.editor .tab:not(.active) .tab-label a,
+.monaco-workbench.vs-dark .part.editor .tab:not(.active) .monaco-icon-label {
+    color: #cbd5e1 !important;
     font-weight: 500 !important;
     opacity: 1 !important;
 }
 
-.monaco-workbench .part.editor .tab:not(.active):hover {
-    background: linear-gradient(${angle}deg, ${hoverTabGradientStops}), ${isLight ? 'rgba(255, 255, 255, 0.55)' : 'rgba(255, 255, 255, 0.08)'} !important;
-    border: 1px solid ${stops[0].color}55 !important;
-    border-bottom: 1px solid transparent !important;
+.monaco-workbench.vs-dark .part.activitybar {
+    background-color: rgba(${rgb1.r}, ${rgb1.g}, ${rgb1.b}, 0.14) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    margin: 0 !important;
 }
 
-.monaco-workbench .part.editor .tab .tab-label,
-.monaco-workbench .part.editor .tab .monaco-icon-label {
+.monaco-workbench.vs-dark .part.activitybar .action-item .action-label {
+    opacity: 1 !important;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)) !important;
+}
+
+.monaco-workbench.vs-dark .part.activitybar .action-item.checked .action-label {
+    color: #ffffff !important;
+    opacity: 1 !important;
+}
+
+.monaco-workbench.vs-dark .part.sidebar {
+    background: linear-gradient(${angle}deg, ${darkCardStops}), rgba(19, 32, 24, 0.68) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    margin: 0 !important;
+}
+
+.monaco-workbench.vs-dark .part.panel {
+    background: linear-gradient(${angle}deg, ${darkCardStops}), rgba(27, 23, 37, 0.75) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    margin: 0 !important;
+}
+
+/* ── 2. LIGHT MODE CANVAS & LAYERS (CRYSTAL CLEAR & HIGH CONTRAST) ────── */
+body.vscode-light,
+.monaco-workbench.vs {
+    background: linear-gradient(${angle}deg, ${lightGradientStops}) !important;
+    background-color: #f6faf8 !important;
+}
+
+.monaco-workbench.vs .part.editor,
+.monaco-workbench.vs .part.editor > .content,
+.monaco-workbench.vs .part.editor .editor-group-container > .editor-container,
+.monaco-workbench.vs .part.editor .editor-instance,
+.monaco-workbench.vs .part.editor .split-view-container,
+.monaco-workbench.vs .part.editor .split-view-view,
+.monaco-workbench.vs .monaco-editor,
+.monaco-workbench.vs .monaco-editor-pane,
+.monaco-workbench.vs .monaco-editor .overflow-guard,
+.monaco-workbench.vs .monaco-editor .monaco-editor-background,
+.monaco-workbench.vs .monaco-editor .margin,
+.monaco-workbench.vs .monaco-editor .glyph-margin,
+.monaco-workbench.vs .monaco-editor .lines-content,
+.monaco-workbench.vs .monaco-editor .view-lines,
+.monaco-workbench.vs .monaco-editor .view-line,
+.monaco-workbench.vs .monaco-editor .view-overlays,
+.monaco-workbench.vs .monaco-editor .monaco-scrollable-element,
+.monaco-workbench.vs .monaco-editor .decorationsOverviewRuler,
+.monaco-workbench.vs .monaco-editor .sticky-widget,
+.monaco-workbench.vs .monaco-editor .sticky-widget-lines,
+.monaco-workbench.vs .monaco-editor .sticky-widget-line-numbers,
+.monaco-workbench.vs .monaco-editor .inputarea.ime-input {
     background: transparent !important;
+    background-color: transparent !important;
+}
+
+.monaco-workbench.vs .part.editor .editor-group-container {
+    background: linear-gradient(${angle}deg, ${lightCardStops}), rgba(255, 255, 255, 0.85) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    border-radius: ${radius}px !important;
+    border: ${radius > 0 ? '1px solid rgba(0, 0, 0, 0.08)' : 'none'} !important;
+    overflow: hidden !important;
+    box-shadow: ${radius > 0 ? '0 8px 24px rgba(0, 0, 0, 0.05)' : 'none'} !important;
+}
+
+.monaco-workbench.vs .part.editor .title,
+.monaco-workbench.vs .part.editor .title.tabs,
+.monaco-workbench.vs .part.editor .editor-group-container > .title,
+.monaco-workbench.vs .part.editor .tabs-and-actions-container,
+.monaco-workbench.vs .part.editor .tabs-breadcrumbs-container,
+.monaco-workbench.vs .part.editor .editor-group-header {
+    background: linear-gradient(${angle}deg, ${lightCardStops}), rgba(245, 250, 248, 0.90) !important;
+    background-color: transparent !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Light Active Tab - CRISP DARK CHARCOAL TEXT */
+.monaco-workbench.vs .part.editor .tab.active {
+    background: linear-gradient(${angle}deg, ${lightActiveTabStops}), rgba(255, 255, 255, 0.98) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+    border: 1px solid rgba(0, 0, 0, 0.12) !important;
+    border-top: 3px solid ${stops[0].color} !important;
+    border-bottom: 1px solid transparent !important;
+    border-radius: ${Math.min(8, radius)}px ${Math.min(8, radius)}px 0 0 !important;
+    margin: 3px 2px 0 2px !important;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.06) !important;
+}
+
+.monaco-workbench.vs .part.editor .tab.active .label-name,
+.monaco-workbench.vs .part.editor .tab.active .tab-label a,
+.monaco-workbench.vs .part.editor .tab.active .monaco-icon-label {
+    color: #0f172a !important; /* ULTRA DARK CHARCOAL */
+    font-weight: 700 !important;
+    opacity: 1 !important;
+}
+
+/* Light Inactive Tab - READABLE SLATE */
+.monaco-workbench.vs .part.editor .tab:not(.active) {
+    background: rgba(0, 0, 0, 0.04) !important;
+    border-radius: ${Math.min(8, radius)}px ${Math.min(8, radius)}px 0 0 !important;
+    margin: 3px 2px 0 2px !important;
+    border: 1px solid transparent !important;
+}
+
+.monaco-workbench.vs .part.editor .tab:not(.active) .label-name,
+.monaco-workbench.vs .part.editor .tab:not(.active) .tab-label a,
+.monaco-workbench.vs .part.editor .tab:not(.active) .monaco-icon-label {
+    color: #334155 !important; /* DARK SLATE GREY */
+    font-weight: 500 !important;
+    opacity: 1 !important;
+}
+
+.monaco-workbench.vs .part.activitybar {
+    background-color: rgba(${rgb1.r}, ${rgb1.g}, ${rgb1.b}, 0.12) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    margin: 0 !important;
+}
+
+.monaco-workbench.vs .part.activitybar .action-item .action-label {
+    color: #334155 !important;
+    opacity: 1 !important;
+    filter: none !important;
+}
+
+.monaco-workbench.vs .part.activitybar .action-item.checked .action-label {
+    color: #0f172a !important;
+    opacity: 1 !important;
+}
+
+.monaco-workbench.vs .part.sidebar {
+    background: linear-gradient(${angle}deg, ${lightCardStops}), rgba(240, 252, 245, 0.85) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    margin: 0 !important;
+}
+
+.monaco-workbench.vs .part.panel {
+    background: linear-gradient(${angle}deg, ${lightCardStops}), rgba(253, 246, 255, 0.88) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    margin: 0 !important;
+}
+
+/* ── 3. COMMON ROUNDED CORNERS & WIDGETS ──────────────────────────────── */
+.monaco-workbench .part.editor .tab {
+    border: none !important;
+    transition: all 0.15s ease !important;
 }
 
 .monaco-workbench .part.editor .tab-border-top-container,
@@ -1504,63 +1633,6 @@ div.monaco-workbench .part.editor > .content .editor-group-container {
     display: none !important;
 }
 
-/* ── 6. Activity Bar Icons (High Contrast, ZERO margin to prevent offside) */
-.monaco-workbench .part.activitybar {
-    background-color: rgba(${rgb1.r}, ${rgb1.g}, ${rgb1.b}, ${isLight ? 0.22 : 0.14}) !important;
-    backdrop-filter: blur(14px) !important;
-    -webkit-backdrop-filter: blur(14px) !important;
-    /* ZERO margin - keeps bottom gear/profile icons strictly on-screen! */
-    margin: 0 !important;
-}
-
-.monaco-workbench .part.activitybar .action-item .action-label,
-.monaco-workbench .activitybar .action-item .action-label {
-    opacity: 1 !important;
-    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)) !important;
-}
-
-.monaco-workbench .part.activitybar .action-item.checked .action-label {
-    color: #ffffff !important;
-    opacity: 1 !important;
-}
-
-.monaco-workbench .part.activitybar .action-item {
-    border-radius: ${Math.min(8, radius)}px !important;
-}
-
-/* ── 7. Sidebar, Auxiliarybar & Panel (Safe Background, ZERO outer margin) */
-.monaco-workbench .part.sidebar {
-    background: linear-gradient(${angle}deg, ${cardGradientStops}), ${isLight ? 'rgba(238, 252, 245, 0.65)' : 'rgba(19, 32, 24, 0.68)'} !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-    margin: 0 !important;
-}
-
-.monaco-workbench .part.auxiliarybar {
-    background: linear-gradient(${angle}deg, ${cardGradientStops}), ${isLight ? 'rgba(238, 252, 245, 0.65)' : 'rgba(19, 32, 24, 0.68)'} !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-    margin: 0 !important;
-}
-
-.monaco-workbench .part.panel {
-    background: linear-gradient(${angle}deg, ${cardGradientStops}), ${isLight ? 'rgba(253, 244, 255, 0.68)' : 'rgba(27, 23, 37, 0.75)'} !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-    margin: 0 !important;
-}
-
-.monaco-workbench .part.statusbar {
-    background-color: ${isLight ? 'rgba(220, 252, 231, 0.92)' : 'rgba(15, 28, 19, 0.88)'} !important;
-    margin: 0 !important;
-}
-
-.monaco-workbench .part.titlebar {
-    background-color: ${isLight ? 'rgba(220, 252, 231, 0.92)' : 'rgba(16, 25, 21, 0.88)'} !important;
-    margin: 0 !important;
-}
-
-/* ── 8. Navigation, File Explorer & Lists (Rounded Items) ──────────────── */
 .monaco-list .monaco-list-row,
 .monaco-list-row,
 .monaco-tree-row {
@@ -1568,91 +1640,55 @@ div.monaco-workbench .part.editor > .content .editor-group-container {
     margin: 1px 4px !important;
 }
 
+.monaco-workbench .part.activitybar .action-item {
+    border-radius: ${Math.min(8, radius)}px !important;
+}
+
 .monaco-breadcrumbs .monaco-breadcrumb-item {
     border-radius: ${Math.min(4, radius)}px !important;
     padding: 2px 4px !important;
 }
 
-/* ── 9. Pop Up Tooltips & Hover Widgets (Frosted Glass & Rounded) ─────── */
 .monaco-hover,
 .hover-widget,
 .monaco-editor-hover,
-.monaco-hover .hover-row,
-.monaco-hover-content,
 .parameter-hints-widget {
-    background: ${panelHoverBg} !important;
     backdrop-filter: blur(${blurStrength}px) saturate(190%) !important;
     -webkit-backdrop-filter: blur(${blurStrength}px) saturate(190%) !important;
     border-radius: ${radius > 0 ? radius : 8}px !important;
-    border: 1px solid ${stops[stops.length - 1].color}cc !important;
-    box-shadow: 
-        0 14px ${neonSpread}px 8px ${stops[stops.length - 1].color}66,
-        0 0 30px 4px ${stops[0].color}4d,
-        inset 0 1px 1px 0 rgba(255, 255, 255, 0.15) !important;
 }
 
-/* ── 10. Autocomplete & Suggestion Widget ──────────────────────────────── */
-.monaco-editor .suggest-widget,
-.monaco-editor .suggest-widget .tree,
-.monaco-editor .suggest-widget .monaco-list {
-    background: ${isLight ? `rgba(255, 255, 255, ${glassOpacity})` : `rgba(20, 26, 23, ${glassOpacity})`} !important;
+.monaco-editor .suggest-widget {
     backdrop-filter: blur(${blurStrength}px) saturate(190%) !important;
     -webkit-backdrop-filter: blur(${blurStrength}px) saturate(190%) !important;
     border-radius: ${radius > 0 ? radius : 8}px !important;
-    border: 1px solid ${stops[0].color}cc !important;
-    box-shadow: 
-        0 14px ${neonSpread}px 8px ${stops[0].color}59,
-        0 0 30px 5px ${stops[stops.length - 1].color}4d,
-        inset 0 1px 1px 0 rgba(255, 255, 255, 0.15) !important;
 }
 
-/* ── 11. Quick Input / Command Palette ────────────────────────────────── */
 .quick-input-widget {
-    background: ${isLight ? `rgba(255, 255, 255, ${Math.min(0.96, glassOpacity + 0.10)})` : `rgba(23, 26, 34, ${Math.min(0.92, glassOpacity + 0.05)})`} !important;
     backdrop-filter: blur(${blurStrength + 4}px) saturate(200%) !important;
     -webkit-backdrop-filter: blur(${blurStrength + 4}px) saturate(200%) !important;
-    border: 1px solid ${stops[0].color}cc !important;
     border-radius: ${radius > 0 ? radius + 4 : 10}px !important;
-    box-shadow: 
-        0 20px ${neonSpread + 15}px 10px ${stops[stops.length - 1].color}73,
-        0 0 40px 6px ${stops[0].color}59,
-        inset 0 1px 2px 0 rgba(255, 255, 255, 0.20) !important;
 }
 
-/* ── 12. Notifications & Toasts ───────────────────────────────────────── */
 .notifications-toasts .notification-toast {
-    background: ${panelHoverBg} !important;
     backdrop-filter: blur(${blurStrength}px) saturate(180%) !important;
     -webkit-backdrop-filter: blur(${blurStrength}px) saturate(180%) !important;
-    border: 1px solid ${stops[stops.length - 1].color}cc !important;
     border-radius: ${radius > 0 ? radius : 8}px !important;
-    box-shadow: 
-        0 14px ${neonSpread}px 8px ${stops[stops.length - 1].color}66,
-        0 0 25px 4px ${stops[0].color}40 !important;
 }
 
-/* ── 13. Find Widget, Dialogs & Menus ─────────────────────────────────── */
 .monaco-editor .find-widget,
 .editor-widget.find-widget {
-    background: ${panelHoverBg} !important;
     backdrop-filter: blur(${blurStrength}px) !important;
     -webkit-backdrop-filter: blur(${blurStrength}px) !important;
     border-radius: ${radius > 0 ? radius : 8}px !important;
-    border: 1px solid ${stops[0].color}aa !important;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.3) !important;
 }
 
 .monaco-menu,
 .monaco-menu-container,
-.context-view.monaco-menu-container,
-.monaco-dropdown-menu,
-.monaco-dialog-box {
-    background: ${panelHoverBg} !important;
+.context-view.monaco-menu-container {
     backdrop-filter: blur(${blurStrength}px) saturate(190%) !important;
     -webkit-backdrop-filter: blur(${blurStrength}px) saturate(190%) !important;
     border-radius: ${Math.min(10, radius > 0 ? radius : 8)}px !important;
-    border: 1px solid ${stops[stops.length - 1].color}88 !important;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.4) !important;
 }
 
 .monaco-menu .action-menu-item {
@@ -1661,10 +1697,9 @@ div.monaco-workbench .part.editor > .content .editor-group-container {
 }
 `;
 
-        // Write custom.css
         await fs.promises.writeFile(customCssPath, cssContent, 'utf-8');
     } catch (err) {
-        console.error('Failed to update CSS and patch workbench:', err);
+        console.error('Failed to update CSS:', err);
     }
 }
 
