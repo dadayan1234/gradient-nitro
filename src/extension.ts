@@ -1,3 +1,60 @@
+
+export async function clearCustomCssFile() {
+    try {
+        const appData = process.env.APPDATA || (process.platform === 'darwin' ? path.join(os.homedir(), 'Library', 'Application Support') : path.join(os.homedir(), '.config'));
+        const customCssPath = path.join(appData, 'Code', 'User', 'custom.css');
+        if (fs.existsSync(customCssPath)) {
+            await fs.promises.writeFile(customCssPath, '/* Gradient Nitro - Inactive */\n', 'utf-8');
+        }
+    } catch (err) {
+        console.error('Failed to clear custom.css:', err);
+    }
+}
+
+export async function cleanupLegacyRootCustomizations() {
+    try {
+        const workbenchConfig = vscode.workspace.getConfiguration('workbench');
+        const cc = { ...(workbenchConfig.get<Record<string, any>>('colorCustomizations') || {}) };
+        const keysToRemove = [
+            "focusBorder", "widget.shadow", "selection.background", "activityBar.background",
+            "activityBar.foreground", "activityBar.inactiveForeground", "activityBar.activeBorder",
+            "activityBar.border", "activityBarBadge.background", "activityBarBadge.foreground",
+            "sideBar.background", "sideBar.border", "sideBarTitle.foreground", "sideBarSectionHeader.foreground",
+            "editor.background", "editorGutter.background", "editorGroup.emptyBackground",
+            "editorGroupHeader.tabsBackground", "editorGroupHeader.noTabsBackground", "editorGroupHeader.tabsBorder",
+            "tab.activeBackground", "tab.unfocusedActiveBackground", "tab.inactiveBackground",
+            "tab.unfocusedInactiveBackground", "tab.hoverBackground", "tab.unfocusedHoverBackground",
+            "tab.activeForeground", "tab.inactiveForeground", "tab.unfocusedActiveForeground",
+            "tab.unfocusedInactiveForeground", "tab.hoverForeground", "tab.border", "tab.activeBorder",
+            "tab.activeBorderTop", "breadcrumb.background", "breadcrumb.foreground", "breadcrumb.focusForeground",
+            "breadcrumb.activeSelectionForeground", "editorLineNumber.foreground", "editorLineNumber.activeForeground",
+            "editorCursor.foreground", "editorHoverWidget.border", "editorWidget.border", "editorWidget.resizeBorder",
+            "editorSuggestWidget.border", "editorSuggestWidget.highlightForeground", "editorSuggestWidget.selectedBackground",
+            "quickInput.border", "pickerGroup.border", "pickerGroup.foreground", "notifications.border",
+            "notificationToast.border", "peekView.border", "badge.background", "badge.foreground",
+            "button.background", "button.hoverBackground", "button.foreground", "progressBar.background",
+            "inputOption.activeBorder", "list.activeSelectionBackground", "list.highlightForeground",
+            "panel.background", "panel.border", "panelTitle.activeBorder", "panelTitle.activeForeground",
+            "panelTitle.inactiveForeground", "terminal.background", "terminalCursor.foreground",
+            "terminal.ansiGreen", "terminal.ansiMagenta", "statusBar.background", "statusBar.foreground",
+            "statusBar.border", "statusBar.debuggingBackground", "statusBar.noFolderBackground",
+            "statusBarItem.hoverBackground", "statusBarItem.remoteBackground", "titleBar.activeBackground",
+            "titleBar.activeForeground", "titleBar.inactiveForeground", "titleBar.border",
+            "gitDecoration.untrackedResourceForeground", "gitDecoration.stageModifiedResourceForeground"
+        ];
+        let hasChanges = false;
+        for (const k of keysToRemove) {
+            if (k in cc) {
+                delete cc[k];
+                hasChanges = true;
+            }
+        }
+        if (hasChanges) {
+            await workbenchConfig.update('colorCustomizations', cc, vscode.ConfigurationTarget.Global);
+        }
+    } catch (e) {}
+}
+
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';

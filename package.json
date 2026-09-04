@@ -2,7 +2,7 @@
   "name": "gradient-nitro-glass",
   "displayName": "Gradient Nitro Glass Theme",
   "description": "Elegant horizontal gradient theme with developer typography, eye-friendly soft contrast, frozen glass tooltips, neon glow, and an interactive theme customizer UI.",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "publisher": "dadayan1234",
   "icon": "icon.png",
   "license": "MIT",
@@ -50,6 +50,11 @@
       {
         "command": "gradientNitro.resetDefaults",
         "title": "Gradient Nitro: Reset to Default Settings",
+        "category": "Theme"
+      },
+      {
+        "command": "gradientNitro.cleanSettings",
+        "title": "Gradient Nitro: Clean All Injected Settings & Styles",
         "category": "Theme"
       }
     ],
