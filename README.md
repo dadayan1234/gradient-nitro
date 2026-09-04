@@ -91,4 +91,4 @@ npx @vscode/vsce publish
 
 ## 📄 License
 
-MIT © klakklik
+MIT © dadayan1234
