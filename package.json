@@ -1,0 +1,139 @@
+{
+  "name": "gradient-nitro-glass",
+  "displayName": "Gradient Nitro Glass Theme",
+  "description": "Elegant horizontal gradient theme (Emerald to Nitro Violet) with JetBrains typography, eye-friendly soft contrast, frozen glass tooltips, neon glow, and an interactive theme customizer UI.",
+  "version": "1.0.6",
+  "publisher": "klakklik",
+  "icon": "icon.png",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dadayan1234/gradient-nitro.git"
+  },
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Themes",
+    "Other"
+  ],
+  "keywords": [
+    "gradient",
+    "nitro",
+    "spotify",
+    "discord",
+    "frozen glass",
+    "acrylic",
+    "vibrant",
+    "customizer",
+    "jetbrains"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "themes": [
+      {
+        "label": "Gradient Nitro Glass",
+        "uiTheme": "vs-dark",
+        "path": "./themes/gradient-nitro-theme.json"
+      },
+      {
+        "label": "Gradient Nitro Glass Light",
+        "uiTheme": "vs",
+        "path": "./themes/gradient-nitro-light-theme.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "gradientNitro.openCustomizer",
+        "title": "Gradient Nitro: Open Theme Customizer",
+        "category": "Theme"
+      },
+      {
+        "command": "gradientNitro.resetDefaults",
+        "title": "Gradient Nitro: Reset to Default Settings",
+        "category": "Theme"
+      }
+    ],
+    "configuration": {
+      "title": "Gradient Nitro Glass",
+      "properties": {
+        "gradientNitro.colorStops": {
+          "type": "array",
+          "default": [
+            {
+              "color": "#28A12F",
+              "offset": 0
+            },
+            {
+              "color": "#00D2FF",
+              "offset": 40
+            },
+            {
+              "color": "#A008B9",
+              "offset": 100
+            }
+          ],
+          "description": "Multi-stop gradient color palette points (color & offset %)"
+        },
+        "gradientNitro.roundedCorners": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable modern rounded floating window sections & panels"
+        },
+        "gradientNitro.borderRadius": {
+          "type": "number",
+          "default": 12,
+          "description": "Border corner radius (px) for floating windows, panels and tabs"
+        },
+        "gradientNitro.leftColor": {
+          "type": "string",
+          "default": "#28A12F",
+          "description": "Left accent color (Emerald / Spring Green)"
+        },
+        "gradientNitro.rightColor": {
+          "type": "string",
+          "default": "#A008B9",
+          "description": "Right accent color (Discord Nitro Violet / Magenta)"
+        },
+        "gradientNitro.blurStrength": {
+          "type": "number",
+          "default": 24,
+          "description": "Gaussian blur strength (px) for floating widgets and tooltips"
+        },
+        "gradientNitro.neonGlowSpread": {
+          "type": "number",
+          "default": 35,
+          "description": "Neon diffusion glow spread (px) around popups and tooltips"
+        },
+        "gradientNitro.glassOpacity": {
+          "type": "number",
+          "default": 0.7,
+          "description": "Frosted glass opacity (0.50 to 0.95)"
+        },
+        "gradientNitro.gradientAngle": {
+          "type": "number",
+          "default": 90,
+          "description": "Custom gradient angle in degrees (0 to 360) across whole VS Code page"
+        },
+        "gradientNitro.gradientIntensity": {
+          "type": "number",
+          "default": 0.25,
+          "description": "Whole-page gradient visibility intensity (0.05 to 0.60)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.80.0",
+    "@vscode/vsce": "^2.24.0",
+    "typescript": "^5.3.3"
+  }
+}
