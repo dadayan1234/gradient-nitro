@@ -2,14 +2,14 @@
 
 **An elegant glass and gradient theme for Visual Studio Code.**
 
-A minimal workspace with colorful language-aware syntax, purple dark and light palettes, and a visual customizer. Version **1.3.1** brings gradients into the text editor, adjustable rounded corners, consistent panel borders and independent color intensity for both modes.
+A minimal workspace with colorful language-aware syntax, purple dark and light palettes, and a visual customizer. Version **1.3.2** brings gradients into the text editor, adjustable rounded corners, consistent panel borders and independent color intensity for both modes.
 
 [Marketplace](https://marketplace.visualstudio.com/items?itemName=dadayan1234.gradient-nitro-glass) | [Issues](https://github.com/dadayan1234/gradient-nitro/issues) | [Changelog](CHANGELOG.md)
 
 ## Installation
 
 1. Open **Extensions** in VS Code with **Ctrl+Shift+X** on Windows/Linux or **Cmd+Shift+X** on macOS.
-2. Search for **Gradient Nitro Glass Theme** and select **Install**. To install a downloaded package instead, open the Command Palette, run **Extensions: Install from VSIX...**, and select `gradient-nitro-glass-1.3.1.vsix`.
+2. Search for **Gradient Nitro Glass Theme** and select **Install**. To install a downloaded package instead, open the Command Palette, run **Extensions: Install from VSIX...**, and select `gradient-nitro-glass-1.3.2.vsix`.
 3. Open the **Command Palette** with **Ctrl+Shift+P** on Windows/Linux or **Cmd+Shift+P** on macOS. **F1** also opens it.
 4. Run **Preferences: Color Theme**, then select **Gradient Nitro Glass** or **Gradient Nitro Glass Light**.
 5. Open the built-in customizer below to make the theme your own. On first use of live workbench effects, select **Reload Window** when prompted; later adjustments apply live.

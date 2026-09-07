@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.3.2] - 2026-09-07
+
+- Refresh the Marketplace package with the latest customizer installation guide and annotated screenshots.
+
 ## [1.3.1] - 2026-09-07
 
 - Darken panel headers and add a contrasting active-tab surface, readable labels and accent underline.
