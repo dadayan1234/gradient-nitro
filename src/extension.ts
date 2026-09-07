@@ -2,19 +2,30 @@
 export async function clearCustomCssFile() {
     try {
         const appData = process.env.APPDATA || (process.platform === 'darwin' ? path.join(os.homedir(), 'Library', 'Application Support') : path.join(os.homedir(), '.config'));
-        const customCssPath = path.join(appData, 'Code', 'User', 'custom.css');
-        if (fs.existsSync(customCssPath)) {
+        const profileRoot = extensionContext?.globalStorageUri?.scheme === 'file'
+            ? path.dirname(path.dirname(extensionContext.globalStorageUri.fsPath))
+            : path.join(appData, 'Code', 'User');
+        const customCssPath = path.join(profileRoot, 'custom.css');
+        if (fs.existsSync(customCssPath) && /GRADIENT NITRO|Gradient Nitro/.test(await fs.promises.readFile(customCssPath, 'utf8'))) {
+            const current = await fs.promises.readFile(customCssPath, 'utf8');
+            if (current.trim() === '/* Gradient Nitro - Inactive */') return;
+            await fs.promises.copyFile(customCssPath, customCssPath + '.nitro-backup-' + Date.now());
             await fs.promises.writeFile(customCssPath, '/* Gradient Nitro - Inactive */\n', 'utf-8');
         }
     } catch (err) {
         console.error('Failed to clear custom.css:', err);
+        throw err;
     }
 }
 
 export async function cleanupLegacyRootCustomizations() {
     try {
         const workbenchConfig = vscode.workspace.getConfiguration('workbench');
-        const cc = { ...(workbenchConfig.get<Record<string, any>>('colorCustomizations') || {}) };
+        const cc = { ...(workbenchConfig.inspect<Record<string, any>>('colorCustomizations')?.globalValue || {}) };
+        const nitro = vscode.workspace.getConfiguration('gradientNitro');
+        const left = nitro.get<string>('leftColor');
+        const right = nitro.get<string>('rightColor');
+        if (!left || !right || cc['focusBorder'] !== left + 'a0' || cc['widget.shadow'] !== right + '60' || cc['editor.background'] !== '#00000000') return;
         const keysToRemove = [
             "focusBorder", "widget.shadow", "selection.background", "activityBar.background",
             "activityBar.foreground", "activityBar.inactiveForeground", "activityBar.activeBorder",
@@ -50,41 +61,69 @@ export async function cleanupLegacyRootCustomizations() {
             }
         }
         if (hasChanges) {
+            if (extensionContext) await extensionContext.globalState.update('legacyColorBackup', workbenchConfig.inspect('colorCustomizations')?.globalValue);
             await workbenchConfig.update('colorCustomizations', cc, vscode.ConfigurationTarget.Global);
         }
-    } catch (e) {}
+    } catch (e) { console.error('Nitro legacy recovery failed', e); throw e; }
 }
 
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
+import { blend, readable, onColor } from './colors';
+import { removeLegacyWorkbenchStyles } from './legacy';
+import { NativeLayout } from './layout';
+import { TokenSettings } from './tokenSettings';
+import { FileColors, fileFamilies } from './files';
+import { LanguageOverrides, normalizeSyntaxOverrides, syntaxRoles, languageScopes, syntaxPalette } from './syntax';
+import { syntaxSamples } from './samples';
 
-export function activate(context: vscode.ExtensionContext) {
-    // 1. Register Open Customizer Command
-    const openCustomizerCmd = vscode.commands.registerCommand('gradientNitro.openCustomizer', () => {
-        ThemeCustomizerPanel.render(context.extensionUri);
-    });
-
-    // 2. Register Reset Defaults Command
-    const resetDefaultsCmd = vscode.commands.registerCommand('gradientNitro.resetDefaults', async () => {
-        await resetToDefaultSettings();
-        vscode.window.showInformationMessage('Gradient Nitro Theme reset to defaults!');
-    });
-
-    // 3. Listen to Color Theme switches (sync custom.css)
-    const themeChangeSub = vscode.window.onDidChangeActiveColorTheme(async (theme) => {
-        if (theme.kind === vscode.ColorThemeKind.Light || theme.kind === vscode.ColorThemeKind.Dark) {
-            const config = getCurrentConfig();
-            config.themeMode = theme.kind === vscode.ColorThemeKind.Light ? 'light' : 'dark';
-            await updateCustomCssFile(config);
-        }
-    });
-
-    context.subscriptions.push(openCustomizerCmd, resetDefaultsCmd, themeChangeSub);
+let extensionContext: vscode.ExtensionContext;
+let nativeLayout: NativeLayout;
+let tokenSettings: TokenSettings;
+let fileColors: FileColors;
+let pending: Promise<unknown> = Promise.resolve();
+function enqueue(action: () => Promise<void>): Promise<void> {
+    const next = pending.then(action);
+    pending = next.catch(error => { vscode.window.showErrorMessage('Gradient Nitro: ' + String(error)); });
+    return next;
 }
-
-export function deactivate() {}
+export function activate(context: vscode.ExtensionContext) {
+    extensionContext = context;
+    nativeLayout = new NativeLayout(context.globalState);
+    tokenSettings = new TokenSettings(context.globalState);
+    fileColors = new FileColors();
+    context.subscriptions.push(
+        fileColors,
+        vscode.window.registerFileDecorationProvider(fileColors),
+        vscode.commands.registerCommand('gradientNitro.openCustomizer', () => ThemeCustomizerPanel.render(context.extensionUri)),
+        vscode.commands.registerCommand('gradientNitro.resetDefaults', () => enqueue(resetToDefaultSettings)),
+        vscode.commands.registerCommand('gradientNitro.cleanSettings', () => enqueue(resetToDefaultSettings)),
+        vscode.workspace.onDidChangeConfiguration(event => {
+            if (event.affectsConfiguration('workbench.colorTheme')) void enqueue(syncNativeLayout).catch(() => {});
+            if (event.affectsConfiguration('workbench.colorTheme') || event.affectsConfiguration('gradientNitro.fileColors')) fileColors.refresh();
+        })
+    );
+    if (vscode.env?.appRoot && !context.globalState.get('legacyRecovered110')) {
+        void enqueue(async () => {
+            const changed = await removeLegacyWorkbenchStyles(vscode.env.appRoot, path.join(context.globalStorageUri.fsPath, 'legacy-backups'));
+            await clearCustomCssFile();
+            await cleanupLegacyRootCustomizations();
+            await context.globalState.update('legacyRecovered110', true);
+            if (changed) vscode.window.showInformationMessage('Removed legacy Nitro styles. Reload Window once to clear the previously loaded CSS.');
+        }).catch(() => {});
+    }
+    void enqueue(syncNativeLayout).catch(() => {});
+}
+async function syncNativeLayout() {
+    const theme = vscode.workspace.getConfiguration('workbench').get<string>('colorTheme');
+    if (theme === 'Gradient Nitro Glass' || theme === 'Gradient Nitro Glass Light') {
+        const cfg = getCurrentConfig();
+        await nativeLayout.apply(cfg.roundedCorners, cfg.neonGlowIntensity > 0);
+    } else await nativeLayout.restore();
+}
+export async function deactivate() { await pending; await nativeLayout?.restore(); }
 
 export interface ColorStop {
     color: string;
@@ -93,6 +132,12 @@ export interface ColorStop {
 
 export interface ThemeConfig {
     themeMode: 'dark' | 'light';
+    accentColor: string;
+    borderColor: string;
+    borderWidth: number;
+    neonGlowIntensity: number;
+    syntaxOverrides: LanguageOverrides;
+    fileColors: boolean;
     colorStops: ColorStop[];
     leftColor: string;
     rightColor: string;
@@ -128,7 +173,7 @@ class ThemeCustomizerPanel {
         } else {
             const panel = vscode.window.createWebviewPanel(
                 'gradientNitroCustomizer',
-                'Gradient Nitro: Theme & Font Studio',
+                'Gradient Nitro: Theme & Font Preview',
                 vscode.ViewColumn.One,
                 {
                     enableScripts: true,
@@ -155,19 +200,17 @@ class ThemeCustomizerPanel {
             async (message: any) => {
                 switch (message.command) {
                     case 'applyTheme':
-                        await applyCustomTheme(message.config);
-                        const reloadOpt = await vscode.window.showInformationMessage(
-                            '✨ Gradient Nitro applied! Reload window to see the new gradient & rounded effects.',
-                            'Reload Window'
-                        );
-                        if (reloadOpt === 'Reload Window') {
-                            await vscode.commands.executeCommand('workbench.action.reloadWindow');
-                        }
+                        try {
+                            await enqueue(() => applyCustomTheme(message.config));
+                            vscode.window.showInformationMessage('Gradient Nitro colors applied.');
+                        } catch { /* Reported by the command queue. */ }
                         break;
                     case 'resetDefaults':
-                        await resetToDefaultSettings();
-                        webview.postMessage({ command: 'syncConfig', config: getDefaultConfig() });
-                        vscode.window.showInformationMessage('🔄 Theme & layout restored to default configuration.');
+                        try {
+                            await enqueue(resetToDefaultSettings);
+                            webview.postMessage({ command: 'syncConfig', config: getDefaultConfig() });
+                            vscode.window.showInformationMessage('Restored Default Dark Modern.');
+                        } catch { /* Reported by the command queue. */ }
                         break;
                     case 'getConfig':
                         webview.postMessage({ command: 'syncConfig', config: getCurrentConfig() });
@@ -180,8 +223,10 @@ class ThemeCustomizerPanel {
     }
 
     private _getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): string {
-        const config = getCurrentConfig();
-        const jsonConfig = JSON.stringify(config);
+        const rawConfig = normalizeConfig(getCurrentConfig());
+        const jsonConfig = JSON.stringify(rawConfig).replace(/</g, '\\u003c');
+        const syntaxData = JSON.stringify({ roles: syntaxRoles, samples: syntaxSamples, palettes: Object.fromEntries(['dark', 'light'].map(mode => [mode, Object.fromEntries(['all', ...Object.keys(languageScopes)].map(language => [language, syntaxPalette(mode as 'dark' | 'light', language)]))])) }).replace(/</g, '\\u003c');
+        const config = { ...rawConfig, fontFamily: rawConfig.fontFamily.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') };
 
         return `<!DOCTYPE html>
 <html lang="en">
@@ -190,6 +235,14 @@ class ThemeCustomizerPanel {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gradient Nitro Theme & Layout Studio</title>
     <style>
+        .ui-icon { width: 18px; height: 18px; vertical-align: middle; flex-shrink: 0; }
+        button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--vscode-focusBorder, #60a5fa); outline-offset: 3px; }
+        .mock-code, .mock-code * { font-family: var(--font-fam); }
+        .mock-code { color: #e2e8f0; overflow: auto; }
+        .light-mode .mock-code { color: #172033; background: #f8fafc; }
+        .light-mode .mock-code span { background: transparent !important; }
+        @media (max-width: 640px) { .header, .form-row, .actions { flex-wrap: wrap; gap: 12px; } .slider-wrapper { width: 100%; } .mock-sidebar { display: none; } body { padding: 12px; } }
+
         :root {
             --blur: ${config.blurStrength}px;
             --spread: ${config.neonGlowSpread}px;
@@ -197,7 +250,7 @@ class ThemeCustomizerPanel {
             --angle: ${config.gradientAngle}deg;
             --intensity: ${config.gradientIntensity};
             --radius: ${config.roundedCorners ? config.borderRadius : 0}px;
-            --font-fam: ${config.fontFamily};
+            --font-fam: ${rawConfig.fontFamily};
             --font-size: ${config.fontSize}px;
             --line-height: ${config.lineHeight}px;
         }
@@ -224,7 +277,7 @@ class ThemeCustomizerPanel {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+            box-shadow: 0 6px 18px -8px rgba(0,0,0,0.20);
         }
         .title h1 { font-size: 22px; font-weight: 700; color: #ffffff; }
         .title p { font-size: 13px; color: #94a3b8; margin-top: 4px; }
@@ -550,7 +603,7 @@ class ThemeCustomizerPanel {
             flex: 2;
             background: linear-gradient(135deg, #10b981, #06b6d4, #8b5cf6, #ec4899);
             color: #ffffff;
-            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.35);
+            box-shadow: 0 4px 12px -4px rgba(0, 130, 180, 0.18);
         }
         .btn-primary:hover { opacity: 0.92; transform: translateY(-2px); }
         .btn-secondary {
@@ -560,6 +613,54 @@ class ThemeCustomizerPanel {
             border: 1px solid #3b4455;
         }
         .btn-secondary:hover { background: #2c3342; }
+        .btn-primary { background: #0369a1; color: #ffffff; }
+        .mode-btn.active { background: #075985; color: #ffffff; }
+        .form-desc { color: #94a3b8; }
+        .mock-editor { min-width: 0; }
+        .mock-code { overflow: auto; }
+        .mock-code * { font-family: inherit; }
+        .syntax-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 10px; margin-top: 16px; }
+        .syntax-control { display: flex; gap: 10px; align-items: center; padding: 10px; background: #1a1e28; border: 1px solid #2d3648; border-radius: 8px; }
+        .syntax-control label { font-size: 12px; text-transform: capitalize; }
+        .studio-light .syntax-control { background: #f8fafc; border-color: #cbd5e1; }
+        .page-mockup { height: 430px; box-shadow: none; padding: 10px; }
+        .mock-sidebar { width: 160px; }
+        .mock-file-label { display: block; padding: 6px 8px; font-size: 11px; border-radius: 5px; color: #a9b8cd; cursor: pointer; background: transparent; border: 0; width: 100%; text-align: left; }
+        .mock-file-label.active { background: #22374b; color: #8bd5ff; }
+        .light-mode .mock-file-label { color: #475569; }
+        .light-mode .mock-file-label.active { color: #075f9c; background: #dcebf5; }
+        .mock-section-title { font-size: 10px; letter-spacing: 1.4px; color: #96a6bb; margin: 4px 8px 12px; }
+        .mock-code { flex: 1; margin: 0; white-space: pre; font-size: 12px; line-height: 1.7; background: #11151d; color: #d8e2ef; }
+        .light-mode .mock-code { background: #f8fafc; color: #25364b; }
+        .mock-tabs { height: 36px; flex-shrink: 0; padding: 5px; }
+        .mock-tab-item { border-top-width: 1px; border-radius: 5px; }
+        .mock-bottom { border-top: 1px solid #334155; padding: 10px 12px; min-height: 74px; font-size: 10px; color: #96a6bb; border-radius: 0 0 var(--radius) var(--radius); }
+        .mock-bottom-nav { display: flex; gap: 12px; margin-bottom: 9px; }
+        .mock-bottom-nav .selected { color: #8bd5ff; }
+        .light-mode .mock-bottom-nav .selected { color: #075f9c; }
+        .mock-tooltip { right: 16px; bottom: 88px; max-width: 170px; background: #19202c; box-shadow: 0 6px 16px -6px #00000070; }
+        .light-mode .mock-tooltip { background: #ffffff; }
+        .mock-activity .mock-icon { border-radius: 5px; }
+        body.studio-light { background: #f1f5f9; color: #172033; }
+        .studio-light .card, .studio-light .header { background: #ffffff; border-color: #cbd5e1; box-shadow: none; }
+        .studio-light .card h2, .studio-light .title h1, .studio-light .form-label { color: #172033; }
+        .studio-light .form-desc, .studio-light .title p, .studio-light .slider-val { color: #475569; }
+        .studio-light .stop-row, .studio-light .preset-btn, .studio-light .dir-btn, .studio-light .mode-toggle-group,
+        .studio-light .text-input, .studio-light .hex-input, .studio-light select, .studio-light .btn-secondary { background: #f8fafc; color: #172033; border-color: #cbd5e1; }
+        .studio-light .mode-btn { color: #334155; }
+        .studio-light .mode-btn.active { color: #ffffff; }
+        @media (max-width: 640px) {
+            .header, .form-row, .actions, .stop-row { flex-wrap: wrap; gap: 12px; }
+            .container, .card { min-width: 0; }
+            .slider-wrapper { width: 100%; }
+            .form-row > div { max-width: 100%; flex-wrap: wrap; }
+            .text-input, select { max-width: 100%; }
+            .stop-slider-wrap { flex-basis: 100%; order: 3; min-width: 0; }
+            .stop-slider-wrap input { min-width: 0; }
+            .direction-grid { grid-template-columns: repeat(2, 1fr); }
+            .mock-sidebar { display: none; }
+            body { padding: 12px; }
+        }
     </style>
 </head>
 <body>
@@ -567,27 +668,28 @@ class ThemeCustomizerPanel {
         <div class="header">
             <div class="title">
                 <h1>Gradient Nitro Glass</h1>
-                <p>Whole-Page Gradient, Rounded Floating Cards & Font Studio</p>
+                <p>Color Studio &amp; Effects Preview</p>
             </div>
             <div class="mode-toggle-group">
-                <button id="btnModeDark" class="mode-btn ${config.themeMode === 'dark' ? 'active' : ''}" onclick="setThemeMode('dark')">🌙 Dark Mode</button>
-                <button id="btnModeLight" class="mode-btn ${config.themeMode === 'light' ? 'active' : ''}" onclick="setThemeMode('light')">☀️ Light Mode</button>
+                <button id="btnModeDark" class="mode-btn ${config.themeMode === 'dark' ? 'active' : ''}" onclick="setThemeMode('dark')"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 15.5A8 8 0 0 1 8.5 4 8 8 0 1 0 20 15.5Z"/></svg> Dark Mode</button>
+                <button id="btnModeLight" class="mode-btn ${config.themeMode === 'light' ? 'active' : ''}" onclick="setThemeMode('light')"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0"/></svg> Light Mode</button>
             </div>
         </div>
 
+        <p class="form-desc">Apply updates colors, syntax and native rounded layout. Shadow tint applies to widgets that support theme shadow colors; Modern UI can use neutral shadows. VS Code controls native corner sizes and shadow geometry; custom radius, gradient and blur below are preview effects.</p>
         <!-- Multi-Stop Gradient Palette Bar -->
         <div class="card">
-            <h2>🎨 Multi-Stop Gradient Palette Bar</h2>
+            <h2><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M4 17h16M8 4v6m8 4v6"/></svg> Multi-Stop Gradient Palette Bar</h2>
             <div class="gradient-bar-wrapper">
                 <div class="gradient-preview-bar" id="gradientBar" onclick="onGradientBarClick(event)" title="Click anywhere on the bar to add a new color point!"></div>
                 <div class="stops-container" id="stopsContainer"></div>
-                <button class="btn-add-stop" onclick="addColorStop()">➕ Add Color Point</button>
+                <button class="btn-add-stop" onclick="addColorStop()"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 4v16M4 12h16"/></svg> Add Color Point</button>
             </div>
         </div>
 
         <!-- Presets -->
         <div class="card">
-            <h2>⚡ Multi-Point Gradient Presets</h2>
+            <h2><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M4 17h16M8 4v6m8 4v6"/></svg> Multi-Point Gradient Presets</h2>
             <div class="preset-grid">
                 <button class="preset-btn" onclick="applyPresetStops([{color:'#28A12F',offset:0},{color:'#00D2FF',offset:35},{color:'#7C3AED',offset:70},{color:'#A008B9',offset:100}], 90, 0.28, 24, 35, 0.70, true, 12)">
                     <div class="preset-swatch" style="background: linear-gradient(90deg, #28A12F, #00D2FF, #7C3AED, #A008B9);"></div>
@@ -618,7 +720,7 @@ class ThemeCustomizerPanel {
 
         <!-- Rounded Corners & Modern Acrylic Layout -->
         <div class="card">
-            <h2>🪟 Rounded Windows & Modern Floating Cards</h2>
+            <h2><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M4 17h16M8 4v6m8 4v6"/></svg> Rounded Windows & Modern Floating Cards</h2>
             <div class="form-row">
                 <div>
                     <div class="form-label">Rounded Window Sections</div>
@@ -632,8 +734,8 @@ class ThemeCustomizerPanel {
             </div>
             <div class="form-row">
                 <div>
-                    <div class="form-label">Corner Radius</div>
-                    <div class="form-desc">Curvature for editor, sidebar, terminal & tabs</div>
+                    <div class="form-label">Preview Corner Radius</div>
+                    <div class="form-desc">Native Modern UI uses its own radius scale; this slider adjusts the preview</div>
                 </div>
                 <div class="slider-wrapper">
                     <input type="range" id="borderRadius" min="0" max="24" value="${config.borderRadius}" oninput="updateRadius()">
@@ -644,16 +746,16 @@ class ThemeCustomizerPanel {
 
         <!-- Gradient Direction & Intensity -->
         <div class="card">
-            <h2>🌐 Whole-Page UI Gradient Direction & Glow</h2>
+            <h2><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M4 17h16M8 4v6m8 4v6"/></svg> Palette Intensity &amp; Gradient Preview</h2>
             <div class="direction-grid">
-                <button class="dir-btn" onclick="setAngle(90)">➡️ Left to Right (90°)</button>
-                <button class="dir-btn" onclick="setAngle(135)">↘️ Diagonal Down (135°)</button>
-                <button class="dir-btn" onclick="setAngle(180)">⬇️ Top to Bottom (180°)</button>
-                <button class="dir-btn" onclick="setAngle(45)">↗️ Diagonal Up (45°)</button>
-                <button class="dir-btn" onclick="setAngle(270)">⬅️ Right to Left (270°)</button>
-                <button class="dir-btn" onclick="setAngle(225)">↙️ Down-Left (225°)</button>
-                <button class="dir-btn" onclick="setAngle(0)">⬆️ Bottom to Top (0°)</button>
-                <button class="dir-btn" onclick="setAngle(315)">↖️ Up-Left (315°)</button>
+                <button class="dir-btn" onclick="setAngle(90)"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path transform="rotate(0 12 12)" d="M4 12h16m-6-6 6 6-6 6"/></svg> Left to Right (90°)</button>
+                <button class="dir-btn" onclick="setAngle(135)"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path transform="rotate(45 12 12)" d="M4 12h16m-6-6 6 6-6 6"/></svg> Diagonal Down (135°)</button>
+                <button class="dir-btn" onclick="setAngle(180)"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path transform="rotate(90 12 12)" d="M4 12h16m-6-6 6 6-6 6"/></svg> Top to Bottom (180°)</button>
+                <button class="dir-btn" onclick="setAngle(45)"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path transform="rotate(-45 12 12)" d="M4 12h16m-6-6 6 6-6 6"/></svg> Diagonal Up (45°)</button>
+                <button class="dir-btn" onclick="setAngle(270)"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path transform="rotate(180 12 12)" d="M4 12h16m-6-6 6 6-6 6"/></svg> Right to Left (270°)</button>
+                <button class="dir-btn" onclick="setAngle(225)"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path transform="rotate(135 12 12)" d="M4 12h16m-6-6 6 6-6 6"/></svg> Down-Left (225°)</button>
+                <button class="dir-btn" onclick="setAngle(0)"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path transform="rotate(-90 12 12)" d="M4 12h16m-6-6 6 6-6 6"/></svg> Bottom to Top (0°)</button>
+                <button class="dir-btn" onclick="setAngle(315)"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path transform="rotate(225 12 12)" d="M4 12h16m-6-6 6 6-6 6"/></svg> Up-Left (315°)</button>
             </div>
 
             <div class="form-row">
@@ -669,11 +771,11 @@ class ThemeCustomizerPanel {
 
             <div class="form-row">
                 <div>
-                    <div class="form-label">Whole-Page Glow Intensity</div>
-                    <div class="form-desc">Strength of ambient gradient across all panels</div>
+                    <div class="form-label">Palette Color Intensity</div>
+                    <div class="form-desc">Color tint strength across native editor and panel surfaces</div>
                 </div>
                 <div class="slider-wrapper">
-                    <input type="range" id="gradientIntensity" min="10" max="50" value="${Math.round(config.gradientIntensity * 100)}" oninput="updateIntensity()">
+                    <input type="range" id="gradientIntensity" min="0" max="60" value="${Math.round(config.gradientIntensity * 100)}" oninput="updateIntensity()">
                     <span id="intensityVal" class="slider-val">${Math.round(config.gradientIntensity * 100)}%</span>
                 </div>
             </div>
@@ -681,7 +783,7 @@ class ThemeCustomizerPanel {
 
         <!-- Typography Studio -->
         <div class="card">
-            <h2>🔤 Custom Font Studio</h2>
+            <h2><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M4 17h16M8 4v6m8 4v6"/></svg> Custom Font Preview</h2>
             <div class="form-row">
                 <div>
                     <div class="form-label">Font Family</div>
@@ -744,10 +846,11 @@ class ThemeCustomizerPanel {
 
         <!-- Frozen Glass Controls -->
         <div class="card">
-            <h2>🧊 Frozen Glass & Neon Glow</h2>
+            <h2><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M4 17h16M8 4v6m8 4v6"/></svg> Shadows &amp; Glass</h2>
+            <div class="form-row"><label class="form-label" for="neonGlowIntensity">Shadow tint / preview neon</label><div class="slider-wrapper"><input type="range" id="neonGlowIntensity" min="0" max="40" value="${Math.round(config.neonGlowIntensity * 100)}" oninput="renderMockup()"><output id="glowIntensityVal" class="slider-val"></output></div></div>
             <div class="form-row">
                 <div>
-                    <div class="form-label">Gaussian Blur Strength</div>
+                    <div class="form-label">Gaussian Blur (Preview)</div>
                     <div class="form-desc">Background glass blur intensity</div>
                 </div>
                 <div class="slider-wrapper">
@@ -757,7 +860,7 @@ class ThemeCustomizerPanel {
             </div>
             <div class="form-row">
                 <div>
-                    <div class="form-label">Neon Diffusion Spread</div>
+                    <div class="form-label">Neon Spread (Preview)</div>
                     <div class="form-desc">Glow aura radius around floating widgets</div>
                 </div>
                 <div class="slider-wrapper">
@@ -767,7 +870,7 @@ class ThemeCustomizerPanel {
             </div>
             <div class="form-row">
                 <div>
-                    <div class="form-label">Frosted Glass Opacity</div>
+                    <div class="form-label">Glass Opacity (Preview)</div>
                     <div class="form-desc">Translucency of tooltips and popups</div>
                 </div>
                 <div class="slider-wrapper">
@@ -777,30 +880,48 @@ class ThemeCustomizerPanel {
             </div>
         </div>
 
-        <!-- Live Whole-Page Simulation -->
         <div class="card">
-            <h2>🖥️ Live Whole-Page UI Simulation</h2>
+            <h2><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M4 17h16M8 4v6m8 4v6"/></svg> Accent &amp; Borders</h2>
+            <div class="form-row"><label for="accentColor" class="form-label">Accent color</label><input type="color" id="accentColor" value="${config.accentColor}" oninput="renderMockup()"></div>
+            <div class="form-row"><label for="borderColor" class="form-label">Border color</label><input type="color" id="borderColor" value="${config.borderColor}" oninput="renderMockup()"></div>
+            <div class="form-row"><label for="borderWidth" class="form-label">Border thickness (preview only)</label><div class="slider-wrapper"><input type="range" id="borderWidth" min="0" max="4" step="0.5" value="${config.borderWidth}" oninput="renderMockup()"><output id="borderWidthVal" class="slider-val"></output></div></div>
+            <p class="form-desc">Text contrast is adjusted automatically for your selected mode and accent.</p>
+            <button class="btn btn-secondary" onclick="surpriseMe()"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m4 4 16 16M4 20l6-6m4-4 6-6m-5 0h5v5m-5 11h5v-5"/></svg> Surprise me</button>
+        </div>
+        <!-- Live Whole-Page Simulation -->
+        <div class="card" id="syntaxStudio">
+            <h2>Language &amp; Syntax Colors</h2>
+            <div class="form-row"><label for="syntaxLanguage" class="form-label">Language palette</label><select id="syntaxLanguage" onchange="renderSyntaxControls();renderMockup()">${['all', ...Object.keys(languageScopes)].map(language => '<option value="' + language + '"' + (language === 'typescript' ? ' selected' : '') + '>' + (language === 'all' ? 'All languages' : language) + '</option>').join('')}</select></div>
+            <p class="form-desc">Set shared colors under All languages, then override individual languages. Colors are adjusted for readable contrast. Semantic colors depend on the installed language provider.</p>
+            <div class="syntax-grid" id="syntaxControls"></div>
+            <div class="form-row"><label for="fileColors" class="form-label">Color file labels in Explorer &amp; tabs</label><input type="checkbox" id="fileColors" ${config.fileColors ? 'checked' : ''}></div>
+            <button class="btn btn-secondary" onclick="resetSyntaxLanguage()">Reset this language palette</button>
+        </div>
+        <div class="card">
+            <h2><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M4 17h16M8 4v6m8 4v6"/></svg> Effects Preview</h2>
             <div class="page-mockup ${config.themeMode === 'light' ? 'light-mode' : ''}" id="mockup">
                 <div class="mock-activity">
                     <div class="mock-icon" id="mockIcon1"></div>
                     <div class="mock-icon" id="mockIcon2"></div>
                 </div>
                 <div class="mock-sidebar">
-                    <div class="mock-file" style="width:70%"></div>
-                    <div class="mock-file" style="width:90%"></div>
-                    <div class="mock-file" style="width:50%"></div>
+                    <div class="mock-section-title">EXPLORER</div>
+                    <button class="mock-file-label active" data-language="typescript" onclick="selectSample('typescript')">theme.ts</button>
+                    <button class="mock-file-label" data-language="python" onclick="selectSample('python')">palette.py</button>
+                    <button class="mock-file-label" data-language="dart" onclick="selectSample('dart')">theme.dart</button>
+                    <button class="mock-file-label" data-language="markdown" onclick="selectSample('markdown')">README.md</button>
+                    <button class="mock-file-label" data-language="dotenv" onclick="selectSample('dotenv')">.env.example</button>
+                    <button class="mock-file-label" data-language="plaintext" onclick="selectSample('plaintext')">notes.txt</button>
                 </div>
                 <div class="mock-editor">
                     <div class="mock-tabs">
-                        <div class="mock-tab-item">main.py</div>
+                        <div class="mock-tab-item" id="mockActiveTab">theme.ts</div><div class="mock-file-label" style="width:auto">README.md</div>
                     </div>
-                    <div class="mock-code" id="mockCode">
-                        <span style="color:#ff5599;font-style:italic">def</span> <span style="color:#60a5fa;font-weight:bold">gradient_nitro_flow</span>():<br>
-                        &nbsp;&nbsp;<span style="color:#ff5599;font-style:italic">return</span> <span style="color:#10b981">f"Multi-point color gradient & rounded cards != None"</span>
-                    </div>
+                    <pre class="mock-code" id="mockCode"></pre>
+                    <div class="mock-bottom"><div class="mock-bottom-nav"><span class="selected">TERMINAL</span><span>OUTPUT</span><span>PROBLEMS</span></div><span>$ theme ready · all colors in balance</span></div>
                     <div class="mock-tooltip" id="mockTooltip">
-                        <div style="font-weight:600;">✨ Frosted Glass</div>
-                        <div style="opacity:0.75;">Multi-Stop Acrylic Glow</div>
+                        <div style="font-weight:600;">Theme.name: string</div>
+                        <div style="opacity:0.85;">A readable tooltip surface.</div>
                     </div>
                 </div>
             </div>
@@ -808,14 +929,16 @@ class ThemeCustomizerPanel {
 
         <!-- Action Buttons -->
         <div class="actions">
-            <button class="btn btn-primary" onclick="applyToVSCode()">✨ Apply Real-time Changes</button>
-            <button class="btn btn-secondary" onclick="resetDefaults()">🔄 Reset Defaults</button>
+            <button class="btn btn-primary" onclick="applyToVSCode()"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m4 12 5 5L20 6"/></svg> Apply Real-time Changes</button>
+            <button class="btn btn-secondary" onclick="resetDefaults()"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 10a8 8 0 1 1 1 8M4 4v6h6"/></svg> Reset Defaults</button>
         </div>
     </div>
 
     <script>
         const vscode = acquireVsCodeApi();
         let initialConfig = ${jsonConfig};
+        const syntaxData = ${syntaxData};
+        let syntaxOverrides = JSON.parse(JSON.stringify(initialConfig.syntaxOverrides || {}));
         let currentMode = initialConfig.themeMode || 'dark';
         let currentStops = initialConfig.colorStops || [
             { color: '#28A12F', offset: 0 },
@@ -824,18 +947,70 @@ class ThemeCustomizerPanel {
         ];
 
         function init() {
+            renderSyntaxControls();
             renderStopsList();
+            setThemeMode(currentMode);
             renderMockup();
         }
 
         function setThemeMode(mode) {
             currentMode = mode;
+            document.body.classList.toggle('studio-light', mode === 'light');
             document.getElementById('btnModeDark').classList.toggle('active', mode === 'dark');
             document.getElementById('btnModeLight').classList.toggle('active', mode === 'light');
             document.getElementById('mockup').classList.toggle('light-mode', mode === 'light');
+            renderSyntaxControls();
             renderMockup();
         }
 
+        function selectSample(language) {
+            document.getElementById('syntaxLanguage').value = language;
+            renderSyntaxControls(); renderMockup();
+        }
+        function resetSyntaxLanguage() {
+            delete syntaxOverrides[document.getElementById('syntaxLanguage').value];
+            renderSyntaxControls(); renderMockup();
+        }
+        function currentSyntaxPalette(language) {
+            return Object.assign({}, syntaxData.palettes[currentMode][language] || syntaxData.palettes[currentMode].all, syntaxOverrides.all, syntaxOverrides[language]);
+        }
+        function renderSyntaxControls() {
+            const language = document.getElementById('syntaxLanguage').value;
+            const palette = currentSyntaxPalette(language);
+            const root = document.getElementById('syntaxControls'); root.replaceChildren();
+            syntaxData.roles.forEach(role => {
+                const row = document.createElement('div'); row.className = 'syntax-control';
+                const input = document.createElement('input'); input.type = 'color'; input.id = 'syntax-' + role; input.value = palette[role];
+                const label = document.createElement('label'); label.htmlFor = input.id; label.textContent = role;
+                input.addEventListener('input', () => { syntaxOverrides[language] = Object.assign({}, syntaxOverrides[language], { [role]: input.value }); renderMockup(); });
+                row.append(input, label); root.append(row);
+            });
+        }
+        function contrastText(color, background) {
+            const rgb = hex => [1,3,5].map(i => parseInt(hex.slice(i,i+2),16));
+            const luminance = hex => rgb(hex).map(v => v/255).map(v => v <= 0.04045 ? v/12.92 : Math.pow((v+0.055)/1.055,2.4)).reduce((sum,v,i) => sum + v * [0.2126,0.7152,0.0722][i],0);
+            const ratio = hex => { const a = luminance(hex), b = luminance(background); return (Math.max(a,b)+0.05)/(Math.min(a,b)+0.05); };
+            if (ratio(color) >= 4.5) return color;
+            const target = ratio('#000000') > ratio('#ffffff') ? 0 : 255;
+            for (let i=1;i<=100;i++) { const c = '#' + rgb(color).map(v => Math.round(v*(1-i/100)+target*i/100).toString(16).padStart(2,'0')).join(''); if (ratio(c)>=4.5) return c; }
+            return target ? '#ffffff' : '#000000';
+        }
+        function renderCodeSample() {
+            const language = document.getElementById('syntaxLanguage').value;
+            const sample = syntaxData.samples[language] || syntaxData.samples.typescript;
+            const palette = currentSyntaxPalette(language);
+            const code = document.getElementById('mockCode'); code.replaceChildren();
+            sample.forEach(([role, text]) => {
+                const span = document.createElement('span'); span.textContent = text;
+                span.style.color = contrastText(palette[role] || palette.text, currentMode === 'light' ? '#f8fafc' : '#11151d');
+                if (role === 'comment') span.style.fontStyle = 'italic';
+                if (role === 'heading') span.style.fontWeight = '600';
+                code.append(span);
+            });
+            document.querySelectorAll('.mock-file-label[data-language]').forEach(el => el.classList.toggle('active', el.dataset.language === language));
+            const names = { typescript:'theme.ts', python:'palette.py', dart:'theme.dart', markdown:'README.md', dotenv:'.env.example', plaintext:'notes.txt' };
+            document.getElementById('mockActiveTab').textContent = names[language] || 'Token palette sample';
+        }
         function renderStopsList() {
             // Sort stops by offset
             currentStops.sort((a, b) => a.offset - b.offset);
@@ -849,15 +1024,15 @@ class ThemeCustomizerPanel {
                     <div class="stop-left">
                         <span class="stop-badge">#\${index + 1}</span>
                         <div class="color-picker-wrapper">
-                            <input type="color" value="\${stop.color}" onchange="updateStopColor(\${index}, this.value)">
-                            <input type="text" class="hex-input" value="\${stop.color}" onchange="updateStopColor(\${index}, this.value)">
+                            <input aria-label="Color point \${index + 1}" type="color" value="\${stop.color}" onchange="updateStopColor(\${index}, this.value)">
+                            <input aria-label="Hex color point \${index + 1}" type="text" class="hex-input" value="\${stop.color}" onchange="updateStopColor(\${index}, this.value)">
                         </div>
                     </div>
                     <div class="stop-slider-wrap">
                         <input type="range" min="0" max="100" value="\${stop.offset}" oninput="updateStopOffset(\${index}, this.value)">
                         <span class="slider-val" style="width:40px;">\${stop.offset}%</span>
                     </div>
-                    <button class="btn-del-stop" onclick="deleteColorStop(\${index})" \${currentStops.length <= 2 ? 'disabled' : ''} title="Remove point">✖</button>
+                    <button class="btn-del-stop" onclick="deleteColorStop(\${index})" \${currentStops.length <= 2 ? 'disabled' : ''} aria-label="Remove color point" title="Remove point"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M4 17h16M8 4v6m8 4v6"/></svg></button>
                 \`;
                 container.appendChild(row);
             });
@@ -871,6 +1046,10 @@ class ThemeCustomizerPanel {
         }
 
         function updateStopColor(index, color) {
+            if (!/^#[0-9a-f]{6}$/i.test(color)) {
+                renderStopsList();
+                return;
+            }
             currentStops[index].color = color;
             renderStopsList();
         }
@@ -984,14 +1163,43 @@ class ThemeCustomizerPanel {
             return \`rgba(\${(num >> 16) & 255}, \${(num >> 8) & 255}, \${num & 255}, \${alpha})\`;
         }
 
+        function surpriseMe() {
+            const hue = Math.floor(Math.random() * 360);
+            function color(h) {
+                const a = 0.65 * Math.min(0.5, 0.5);
+                const f = n => { const k = (n + h / 30) % 12; return Math.round(255 * (0.5 - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))).toString(16).padStart(2, '0'); };
+                return '#' + f(0) + f(8) + f(4);
+            }
+            currentStops = [0, 45, 90].map((shift, i) => ({color: color((hue + shift) % 360), offset: i * 50}));
+            document.getElementById('accentColor').value = color((hue + 180) % 360);
+            document.getElementById('borderColor').value = color((hue + 90) % 360);
+            document.getElementById('gradientIntensity').value = 15 + Math.floor(Math.random() * 25);
+            document.getElementById('gradientAngle').value = Math.floor(Math.random() * 360);
+            renderStopsList(); updateIntensity(); updateAngle();
+        }
         function renderMockup() {
+            renderCodeSample();
+            const width = document.getElementById('borderWidth').value;
+            const border = document.getElementById('borderColor').value;
+            const accent = document.getElementById('accentColor').value;
+            const glow = Number(document.getElementById('neonGlowIntensity').value) / 100;
+            document.getElementById('glowIntensityVal').textContent = Math.round(glow * 100) + '%';
+            const tooltip = document.getElementById('mockTooltip');
+            const spread = Math.min(32, Number(document.getElementById('neonSpread').value));
+            const alpha = glow * (currentMode === 'light' ? 0.65 : 1);
+            tooltip.style.boxShadow = glow === 0 ? 'none' : '0 6px 16px -8px rgba(0,0,0,0.25), 0 0 ' + spread + 'px -4px ' + hexToRgba(accent, alpha);
+            document.querySelectorAll('.mock-file-label, .mock-tab-item, .mock-icon').forEach(el => { el.style.borderRadius = document.getElementById('roundedCorners').checked ? '5px' : '0'; });
+            document.getElementById('borderWidthVal').textContent = width + 'px';
+            document.querySelectorAll('.mock-editor, .mock-sidebar, .mock-tooltip').forEach(el => { el.style.border = width + 'px solid ' + border; });
+            document.querySelector('.mock-tab-item').style.borderTopColor = accent;
+
             const deg = document.getElementById('gradientAngle').value;
             const intensity = document.getElementById('gradientIntensity').value / 100;
             const isLight = currentMode === 'light';
             
             const mock = document.getElementById('mockup');
             const stopsString = currentStops.map(s => {
-                const alpha = isLight ? Math.min(0.65, intensity * 1.6) : intensity;
+                const alpha = isLight ? intensity * 0.35 : intensity * 0.5;
                 return \`\${hexToRgba(s.color, alpha)} \${s.offset}%\`;
             }).join(', ');
 
@@ -1001,7 +1209,7 @@ class ThemeCustomizerPanel {
             if (currentStops.length > 0) {
                 document.getElementById('mockIcon1').style.background = currentStops[0].color;
                 document.getElementById('mockIcon2').style.background = currentStops[currentStops.length - 1].color;
-                document.getElementById('mockTooltip').style.borderColor = currentStops[currentStops.length - 1].color;
+                document.getElementById('mockTooltip').style.borderColor = border;
             }
         }
 
@@ -1026,6 +1234,12 @@ class ThemeCustomizerPanel {
             currentStops.sort((a, b) => a.offset - b.offset);
             const config = {
                 themeMode: currentMode,
+                neonGlowIntensity: Number(document.getElementById('neonGlowIntensity').value) / 100,
+                syntaxOverrides,
+                fileColors: document.getElementById('fileColors').checked,
+                accentColor: document.getElementById('accentColor').value,
+                borderColor: document.getElementById('borderColor').value,
+                borderWidth: Number(document.getElementById('borderWidth').value),
                 colorStops: currentStops,
                 leftColor: currentStops[0].color,
                 rightColor: currentStops[currentStops.length - 1].color,
@@ -1052,16 +1266,22 @@ class ThemeCustomizerPanel {
         window.addEventListener('message', event => {
             const message = event.data;
             if (message.command === 'syncConfig') {
+                syntaxOverrides = JSON.parse(JSON.stringify(message.config.syntaxOverrides || {}));
+                document.getElementById('neonGlowIntensity').value = Math.round((message.config.neonGlowIntensity ?? 0.18) * 100);
+                document.getElementById('fileColors').checked = message.config.fileColors !== false;
+                document.getElementById('accentColor').value = message.config.accentColor;
+                document.getElementById('borderColor').value = message.config.borderColor;
+                document.getElementById('borderWidth').value = message.config.borderWidth;
                 setThemeMode(message.config.themeMode || 'dark');
                 applyPresetStops(
                     message.config.colorStops || [{color: '#28A12F', offset: 0}, {color: '#A008B9', offset: 100}],
-                    message.config.gradientAngle || 90,
-                    message.config.gradientIntensity || 0.28,
-                    message.config.blurStrength || 24,
-                    message.config.neonGlowSpread || 35,
-                    message.config.glassOpacity || 0.70,
+                    message.config.gradientAngle ?? 90,
+                    message.config.gradientIntensity ?? 0.28,
+                    message.config.blurStrength ?? 24,
+                    message.config.neonGlowSpread ?? 35,
+                    message.config.glassOpacity ?? 0.70,
                     message.config.roundedCorners !== false,
-                    message.config.borderRadius || 12
+                    message.config.borderRadius ?? 12
                 );
                 document.getElementById('fontCustomInput').value = message.config.fontFamily;
                 document.getElementById('fontSize').value = message.config.fontSize;
@@ -1100,6 +1320,12 @@ export function getCurrentConfig(): ThemeConfig {
 
     return {
         themeMode: isLight ? 'light' : 'dark',
+        accentColor: nitroConfig.get<string>('accentColor', '#00D2FF'),
+        borderColor: nitroConfig.get<string>('borderColor', '#64748B'),
+        borderWidth: nitroConfig.get<number>('borderWidth', 1),
+        neonGlowIntensity: nitroConfig.get<number>('neonGlowIntensity', 0.18),
+        syntaxOverrides: normalizeSyntaxOverrides(nitroConfig.get('syntaxOverrides', {})),
+        fileColors: nitroConfig.get<boolean>('fileColors', true),
         colorStops: stops,
         leftColor: stops[0]?.color || leftColor,
         rightColor: stops[stops.length - 1]?.color || rightColor,
@@ -1121,6 +1347,12 @@ export function getCurrentConfig(): ThemeConfig {
 export function getDefaultConfig(): ThemeConfig {
     return {
         themeMode: 'dark',
+        accentColor: '#00D2FF',
+        borderColor: '#64748B',
+        borderWidth: 1,
+        neonGlowIntensity: 0.18,
+        syntaxOverrides: {},
+        fileColors: true,
         colorStops: [
             { color: '#28A12F', offset: 0 },
             { color: '#00D2FF', offset: 40 },
@@ -1165,545 +1397,136 @@ export function blendColor(hex: string, baseHex: string, ratio: number): string 
     return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
 
-export async function applyCustomTheme(cfg: ThemeConfig) {
-    const nitroConfig = vscode.workspace.getConfiguration('gradientNitro');
-    await nitroConfig.update('colorStops', cfg.colorStops, vscode.ConfigurationTarget.Global);
-    await nitroConfig.update('roundedCorners', cfg.roundedCorners, vscode.ConfigurationTarget.Global);
-    await nitroConfig.update('borderRadius', cfg.borderRadius, vscode.ConfigurationTarget.Global);
-    await nitroConfig.update('leftColor', cfg.leftColor, vscode.ConfigurationTarget.Global);
-    await nitroConfig.update('rightColor', cfg.rightColor, vscode.ConfigurationTarget.Global);
-    await nitroConfig.update('blurStrength', cfg.blurStrength, vscode.ConfigurationTarget.Global);
-    await nitroConfig.update('neonGlowSpread', cfg.neonGlowSpread, vscode.ConfigurationTarget.Global);
-    await nitroConfig.update('glassOpacity', cfg.glassOpacity, vscode.ConfigurationTarget.Global);
-    await nitroConfig.update('gradientAngle', cfg.gradientAngle, vscode.ConfigurationTarget.Global);
-    await nitroConfig.update('gradientIntensity', cfg.gradientIntensity, vscode.ConfigurationTarget.Global);
-
-    const editorConfig = vscode.workspace.getConfiguration('editor');
-    await editorConfig.update('fontFamily', cfg.fontFamily, vscode.ConfigurationTarget.Global);
-    await editorConfig.update('fontSize', cfg.fontSize, vscode.ConfigurationTarget.Global);
-    await editorConfig.update('lineHeight', cfg.lineHeight, vscode.ConfigurationTarget.Global);
-    await editorConfig.update('fontLigatures', cfg.fontLigatures, vscode.ConfigurationTarget.Global);
-    await editorConfig.update('fontWeight', cfg.fontWeight, vscode.ConfigurationTarget.Global);
-
-    const terminalConfig = vscode.workspace.getConfiguration('terminal.integrated');
-    await terminalConfig.update('fontFamily', cfg.fontFamily, vscode.ConfigurationTarget.Global);
-
-    const targetThemeName = cfg.themeMode === 'light' ? 'Gradient Nitro Glass Light' : 'Gradient Nitro Glass';
-    const workbenchConfig = vscode.workspace.getConfiguration('workbench');
-    await workbenchConfig.update('colorTheme', targetThemeName, vscode.ConfigurationTarget.Global);
-
-    const isLight = cfg.themeMode === 'light';
-    const leftDark = isLight ? blendColor(cfg.leftColor, '#dcfce7', 0.35) : blendColor(cfg.leftColor, '#0a0d0c', 0.16);
-    const leftSidebar = isLight ? blendColor(cfg.leftColor, '#ecfdf5', 0.30) : blendColor(cfg.leftColor, '#0d1210', 0.18);
-    const leftBorder = isLight ? blendColor(cfg.leftColor, '#a7f3d0', 0.50) : blendColor(cfg.leftColor, '#121c15', 0.30);
-    const rightPanel = isLight ? blendColor(cfg.rightColor, '#fdf4ff', 0.35) : blendColor(cfg.rightColor, '#0d0a12', 0.20);
-    const rightBorder = isLight ? blendColor(cfg.rightColor, '#f5d0fe', 0.50) : blendColor(cfg.rightColor, '#1c1224', 0.34);
-
-    const fullColorCustomizations = {
-        "focusBorder": `${cfg.leftColor}a0`,
-        "widget.shadow": `${cfg.rightColor}60`,
-        "selection.background": `${cfg.rightColor}40`,
-        
-        // Activity Bar: High Contrast Icons & Indicators
-        "activityBar.background": leftDark,
-        "activityBar.foreground": isLight ? "#0f172a" : "#ffffff",
-        "activityBar.inactiveForeground": isLight ? "#475569" : "#cbd5e1",
-        "activityBar.activeBorder": cfg.leftColor,
-        "activityBar.border": leftBorder,
-        "activityBarBadge.background": cfg.rightColor,
-        "activityBarBadge.foreground": "#ffffff",
-        
-        "sideBar.background": leftSidebar,
-        "sideBar.border": leftBorder,
-        "sideBarTitle.foreground": isLight ? "#0f172a" : "#ffffff",
-        "sideBarSectionHeader.foreground": isLight ? "#0f172a" : "#ffffff",
-        
-        // Transparent Editor Layers
-        "editor.background": "#00000000",
-        "editorGutter.background": "#00000000",
-        "editorGroup.emptyBackground": "#00000000",
-        "editorGroupHeader.tabsBackground": "#00000000",
-        "editorGroupHeader.noTabsBackground": "#00000000",
-        "editorGroupHeader.tabsBorder": "#00000000",
-        
-        // High Contrast Tabs
-        "tab.activeBackground": isLight ? "#ffffff90" : "#ffffff28",
-        "tab.unfocusedActiveBackground": isLight ? "#ffffff70" : "#ffffff18",
-        "tab.inactiveBackground": "#00000000",
-        "tab.unfocusedInactiveBackground": "#00000000",
-        "tab.hoverBackground": isLight ? "#ffffff99" : "#ffffff32",
-        "tab.unfocusedHoverBackground": isLight ? "#ffffff60" : "#ffffff16",
-        "tab.activeForeground": isLight ? "#000000" : "#ffffff",
-        "tab.inactiveForeground": isLight ? "#334155" : "#e2e8f0",
-        "tab.unfocusedActiveForeground": isLight ? "#0f172a" : "#ffffff",
-        "tab.unfocusedInactiveForeground": isLight ? "#475569" : "#cbd5e1",
-        "tab.hoverForeground": isLight ? "#000000" : "#ffffff",
-        "tab.border": "#00000000",
-        "tab.activeBorder": "#00000000",
-        "tab.activeBorderTop": cfg.leftColor,
-        
-        // Breadcrumbs: High Contrast
-        "breadcrumb.background": "#00000000",
-        "breadcrumb.foreground": isLight ? "#334155" : "#cbd5e1",
-        "breadcrumb.focusForeground": isLight ? "#000000" : "#ffffff",
-        "breadcrumb.activeSelectionForeground": isLight ? "#000000" : "#ffffff",
-        
-        "editorLineNumber.foreground": isLight ? "#64748b" : "#64748b",
-        "editorLineNumber.activeForeground": cfg.leftColor,
-        "editorCursor.foreground": cfg.leftColor,
-        
-        "editorHoverWidget.border": `${cfg.rightColor}cc`,
-        "editorWidget.border": `${cfg.rightColor}bb`,
-        "editorWidget.resizeBorder": cfg.leftColor,
-        
-        "editorSuggestWidget.border": `${cfg.leftColor}cc`,
-        "editorSuggestWidget.highlightForeground": cfg.leftColor,
-        "editorSuggestWidget.selectedBackground": `${cfg.rightColor}55`,
-        
-        "quickInput.border": `${cfg.leftColor}66`,
-        "pickerGroup.border": `${cfg.leftColor}66`,
-        "pickerGroup.foreground": cfg.leftColor,
-        
-        "notifications.border": `${cfg.rightColor}aa`,
-        "notificationToast.border": cfg.rightColor,
-        
-        "peekView.border": cfg.rightColor,
-        "badge.background": cfg.rightColor,
-        "badge.foreground": "#ffffff",
-        
-        "button.background": cfg.leftColor,
-        "button.hoverBackground": blendColor(cfg.leftColor, isLight ? '#ffffff' : '#000000', 0.85),
-        "button.foreground": "#ffffff",
-        "progressBar.background": cfg.leftColor,
-        "inputOption.activeBorder": cfg.rightColor,
-        
-        "list.activeSelectionBackground": `${cfg.leftColor}33`,
-        "list.highlightForeground": cfg.leftColor,
-        
-        "panel.background": rightPanel,
-        "panel.border": rightBorder,
-        "panelTitle.activeBorder": cfg.rightColor,
-        "panelTitle.activeForeground": isLight ? "#0f172a" : "#ffffff",
-        "panelTitle.inactiveForeground": isLight ? "#475569" : "#cbd5e1",
-        
-        "terminal.background": "#00000000",
-        "terminalCursor.foreground": cfg.rightColor,
-        "terminal.ansiGreen": cfg.leftColor,
-        "terminal.ansiMagenta": cfg.rightColor,
-        
-        "statusBar.background": leftDark,
-        "statusBar.foreground": isLight ? "#0f172a" : "#ffffff",
-        "statusBar.border": leftBorder,
-        "statusBar.debuggingBackground": cfg.rightColor,
-        "statusBar.noFolderBackground": leftDark,
-        "statusBarItem.hoverBackground": `${cfg.leftColor}33`,
-        "statusBarItem.remoteBackground": cfg.leftColor,
-        
-        "titleBar.activeBackground": leftDark,
-        "titleBar.activeForeground": isLight ? "#0f172a" : "#ffffff",
-        "titleBar.inactiveForeground": isLight ? "#475569" : "#cbd5e1",
-        "titleBar.border": leftBorder,
-        
-        "gitDecoration.untrackedResourceForeground": cfg.leftColor,
-        "gitDecoration.stageModifiedResourceForeground": cfg.rightColor
-    };
-
-    await workbenchConfig.update('colorCustomizations', fullColorCustomizations, vscode.ConfigurationTarget.Global);
-
-    // Write custom.css and patch workbench.html with valid checksum
-    await updateCustomCssFile(cfg);
+export function normalizeConfig(input: Partial<ThemeConfig>): ThemeConfig {
+    const defaults = getDefaultConfig();
+    const cfg = { ...defaults, ...input };
+    const hex = (value: unknown, fallback: string) => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
+    const number = (value: unknown, fallback: number, min: number, max: number) => typeof value === 'number' && Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback;
+    cfg.themeMode = cfg.themeMode === 'light' ? 'light' : 'dark';
+    cfg.colorStops = Array.isArray(cfg.colorStops) && cfg.colorStops.length >= 2 ? cfg.colorStops.slice(0, 6).map((stop, i) => ({ color: hex(stop?.color, defaults.colorStops[i % 3].color), offset: number(stop?.offset, i ? 100 : 0, 0, 100) })).sort((a, b) => a.offset - b.offset) : defaults.colorStops;
+    cfg.leftColor = cfg.colorStops[0].color;
+    cfg.rightColor = cfg.colorStops[cfg.colorStops.length - 1].color;
+    cfg.accentColor = hex(cfg.accentColor, defaults.accentColor);
+    cfg.borderColor = hex(cfg.borderColor, defaults.borderColor);
+    cfg.borderWidth = number(cfg.borderWidth, 1, 0, 4);
+    cfg.neonGlowIntensity = number(cfg.neonGlowIntensity, 0.18, 0, 0.4);
+    cfg.syntaxOverrides = normalizeSyntaxOverrides(cfg.syntaxOverrides);
+    cfg.fileColors = cfg.fileColors !== false;
+    cfg.gradientIntensity = number(cfg.gradientIntensity, 0.28, 0, 0.6);
+    cfg.gradientAngle = number(cfg.gradientAngle, 90, 0, 360);
+    cfg.borderRadius = number(cfg.borderRadius, 12, 0, 24);
+    cfg.blurStrength = number(cfg.blurStrength, 24, 0, 40);
+    cfg.neonGlowSpread = number(cfg.neonGlowSpread, 35, 0, 60);
+    cfg.glassOpacity = number(cfg.glassOpacity, 0.7, 0.5, 1);
+    cfg.fontSize = number(cfg.fontSize, 14, 8, 40);
+    cfg.lineHeight = number(cfg.lineHeight, 23, 0, 60);
+    cfg.fontFamily = typeof cfg.fontFamily === 'string' && /^[\w\s,'".\-]+$/.test(cfg.fontFamily) ? cfg.fontFamily.slice(0, 200) : defaults.fontFamily;
+    cfg.fontWeight = typeof cfg.fontWeight === 'string' && /^(normal|bold|[1-9]00)$/.test(cfg.fontWeight) ? cfg.fontWeight : '400';
+    cfg.roundedCorners = cfg.roundedCorners === true;
+    cfg.fontLigatures = cfg.fontLigatures === true;
+    return cfg;
 }
 
-export async function updateCustomCssFile(cfg: ThemeConfig) {
-    try {
-        const appData = process.env.APPDATA || (process.platform === 'darwin' ? path.join(os.homedir(), 'Library', 'Application Support') : path.join(os.homedir(), '.config'));
-        const customCssPath = path.join(appData, 'Code', 'User', 'custom.css');
-
-        const stops = cfg.colorStops && cfg.colorStops.length >= 2 ? cfg.colorStops : [
-            { color: cfg.leftColor || '#28A12F', offset: 0 },
-            { color: '#00D2FF', offset: 35 },
-            { color: '#7C3AED', offset: 70 },
-            { color: cfg.rightColor || '#A008B9', offset: 100 }
-        ];
-
-        const angle = cfg.gradientAngle !== undefined ? cfg.gradientAngle : 60;
-        const intensity = cfg.gradientIntensity !== undefined ? cfg.gradientIntensity : 0.28;
-        const radius = cfg.roundedCorners ? (cfg.borderRadius || 14) : 0;
-        const blurStrength = cfg.blurStrength || 18;
-        const neonSpread = cfg.neonGlowSpread || 28;
-        const glassOpacity = cfg.glassOpacity || 0.88;
-
-        // Dark stops
-        const darkGradientStops = stops.map(s => {
-            const rgb = hexToRgb(s.color);
-            return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${Math.min(0.70, intensity * 1.25)}) ${s.offset}%`;
-        }).join(', ');
-
-        const darkCardStops = stops.map(s => {
-            const rgb = hexToRgb(s.color);
-            return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.12) ${s.offset}%`;
-        }).join(', ');
-
-        const darkActiveTabStops = stops.map(s => {
-            const rgb = hexToRgb(s.color);
-            return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.30) ${s.offset}%`;
-        }).join(', ');
-
-        const darkHoverTabStops = stops.map(s => {
-            const rgb = hexToRgb(s.color);
-            return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.18) ${s.offset}%`;
-        }).join(', ');
-
-        // Light stops (soft pastel with high contrast foundation)
-        const lightGradientStops = stops.map(s => {
-            const rgb = hexToRgb(s.color);
-            return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${Math.min(0.20, intensity * 0.50)}) ${s.offset}%`;
-        }).join(', ');
-
-        const lightCardStops = stops.map(s => {
-            const rgb = hexToRgb(s.color);
-            return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.05) ${s.offset}%`;
-        }).join(', ');
-
-        const lightActiveTabStops = stops.map(s => {
-            const rgb = hexToRgb(s.color);
-            return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.15) ${s.offset}%`;
-        }).join(', ');
-
-        const rgb1 = hexToRgb(stops[0].color);
-        const rgbLast = hexToRgb(stops[stops.length - 1].color);
-
-        const cssContent = `/* ==========================================================================
-   GRADIENT NITRO GLASS ENGINE - ADAPTIVE DUAL-MODE (DARK & LIGHT)
-   ========================================================================== */
-
-/* ── 1. DARK MODE CANVAS & LAYERS ─────────────────────────────────────── */
-body.vscode-dark,
-.monaco-workbench.vs-dark {
-    background: linear-gradient(${angle}deg, ${darkGradientStops}) !important;
-    background-color: #101216 !important;
+export function buildColors(input: ThemeConfig): Record<string, string> {
+    const cfg = normalizeConfig(input);
+    const light = cfg.themeMode === 'light';
+    const base = light ? '#f8fafc' : '#11151d';
+    const strength = cfg.gradientIntensity * (light ? 0.35 : 0.45);
+    const left = blend(cfg.leftColor, base, strength);
+    const right = blend(cfg.rightColor, base, strength);
+    const middle = cfg.colorStops[Math.floor(cfg.colorStops.length / 2)].color;
+    const editor = blend(middle, base, strength * 0.35);
+    const foreground = light ? '#172033' : '#f1f5f9';
+    const muted = readable(light ? '#475569' : '#94a3b8', editor);
+    const accent = readable(cfg.accentColor, editor);
+    const border = cfg.borderWidth === 0 ? '#00000000' : cfg.borderColor;
+    const colors: Record<string, string> = {};
+    for (const key of ['editor.background', 'editorGutter.background', 'editorGroup.emptyBackground', 'terminal.background', 'minimap.background', 'editorStickyScroll.background', 'editorHoverWidget.background', 'editorWidget.background', 'editorSuggestWidget.background', 'peekViewEditor.background', 'peekViewResult.background', 'input.background', 'dropdown.background', 'quickInput.background', 'menu.background', 'notifications.background']) colors[key] = editor;
+    for (const key of ['sideBar.background', 'activityBar.background', 'statusBar.background', 'statusBar.noFolderBackground', 'titleBar.activeBackground', 'titleBar.inactiveBackground']) colors[key] = left;
+    for (const key of ['panel.background', 'editorGroupHeader.tabsBackground', 'editorGroupHeader.noTabsBackground', 'tab.inactiveBackground', 'tab.unfocusedInactiveBackground', 'breadcrumb.background', 'sideBarSectionHeader.background']) colors[key] = right;
+    for (const key of ['foreground', 'editor.foreground', 'terminal.foreground', 'sideBar.foreground', 'sideBarTitle.foreground', 'sideBarSectionHeader.foreground', 'activityBar.foreground', 'statusBar.foreground', 'titleBar.activeForeground', 'tab.activeForeground', 'tab.unfocusedActiveForeground', 'panelTitle.activeForeground', 'breadcrumb.foreground', 'editorHoverWidget.foreground', 'editorSuggestWidget.foreground', 'input.foreground', 'dropdown.foreground', 'quickInput.foreground', 'menu.foreground', 'notifications.foreground', 'peekViewResult.fileForeground', 'peekViewResult.lineForeground', 'list.activeSelectionForeground', 'list.inactiveSelectionForeground']) colors[key] = foreground;
+    for (const key of ['descriptionForeground', 'editorLineNumber.foreground', 'tab.inactiveForeground', 'tab.unfocusedInactiveForeground', 'titleBar.inactiveForeground', 'activityBar.inactiveForeground', 'panelTitle.inactiveForeground']) colors[key] = muted;
+    for (const key of ['focusBorder', 'editorCursor.foreground', 'editorLineNumber.activeForeground', 'tab.activeBorderTop', 'activityBar.activeBorder', 'panelTitle.activeBorder', 'progressBar.background', 'textLink.foreground', 'textLink.activeForeground', 'list.highlightForeground', 'editorSuggestWidget.highlightForeground']) colors[key] = accent;
+    for (const key of ['sideBar.border', 'activityBar.border', 'panel.border', 'editorGroup.border', 'tab.border', 'statusBar.border', 'titleBar.border', 'editorHoverWidget.border', 'editorWidget.border', 'editorSuggestWidget.border', 'input.border', 'dropdown.border', 'menu.border', 'notifications.border', 'peekView.border']) colors[key] = border;
+    for (const key of ['button', 'badge', 'activityBarBadge']) { colors[key + '.background'] = cfg.accentColor; colors[key + '.foreground'] = onColor(cfg.accentColor); }
+    colors['button.hoverBackground'] = blend(cfg.accentColor, onColor(cfg.accentColor) === '#000000' ? '#ffffff' : '#000000', 0.9);
+    colors['statusBar.debuggingBackground'] = cfg.accentColor;
+    colors['statusBar.debuggingForeground'] = onColor(cfg.accentColor);
+    colors['statusBarItem.remoteBackground'] = cfg.accentColor;
+    colors['statusBarItem.remoteForeground'] = onColor(cfg.accentColor);
+    colors['tab.activeBackground'] = editor;
+    colors['tab.unfocusedActiveBackground'] = editor;
+    const alpha = Math.round(cfg.neonGlowIntensity * (light ? 0.65 : 1) * 255).toString(16).padStart(2, '0');
+    colors['widget.shadow'] = cfg.accentColor + alpha;
+    colors['scrollbar.shadow'] = '#00000000';
+    colors['editorStickyScroll.shadow'] = '#00000000';
+    colors['listFilterWidget.shadow'] = cfg.accentColor + alpha;
+    colors['widget.border'] = border;
+    colors['tab.hoverBackground'] = blend(accent, editor, 0.10);
+    colors['tab.unfocusedHoverBackground'] = blend(accent, editor, 0.06);
+    colors['tab.selectedBackground'] = blend(accent, editor, 0.10);
+    colors['tab.activeBorder'] = '#00000000';
+    colors['list.hoverBackground'] = blend(accent, left, 0.08);
+    colors['list.focusBackground'] = blend(accent, left, 0.14);
+    colors['list.focusForeground'] = foreground;
+    colors['list.focusOutline'] = accent;
+    colors['toolbar.hoverBackground'] = blend(accent, editor, 0.10);
+    colors['toolbar.activeBackground'] = blend(accent, editor, 0.16);
+    for (const [family, data] of Object.entries(fileFamilies)) colors['gradientNitro.file.' + family] = readable(light ? data.light : data.dark, left);
+    for (const key of ['editor.selectionBackground', 'editor.inactiveSelectionBackground', 'editorSuggestWidget.selectedBackground', 'list.activeSelectionBackground', 'list.inactiveSelectionBackground']) colors[key] = blend(accent, editor, 0.18);
+    return colors;
 }
 
-.monaco-workbench.vs-dark .part.editor,
-.monaco-workbench.vs-dark .part.editor > .content,
-.monaco-workbench.vs-dark .part.editor .editor-group-container > .editor-container,
-.monaco-workbench.vs-dark .part.editor .editor-instance,
-.monaco-workbench.vs-dark .part.editor .split-view-container,
-.monaco-workbench.vs-dark .part.editor .split-view-view,
-.monaco-workbench.vs-dark .monaco-editor,
-.monaco-workbench.vs-dark .monaco-editor-pane,
-.monaco-workbench.vs-dark .monaco-editor .overflow-guard,
-.monaco-workbench.vs-dark .monaco-editor .monaco-editor-background,
-.monaco-workbench.vs-dark .monaco-editor .margin,
-.monaco-workbench.vs-dark .monaco-editor .glyph-margin,
-.monaco-workbench.vs-dark .monaco-editor .lines-content,
-.monaco-workbench.vs-dark .monaco-editor .view-lines,
-.monaco-workbench.vs-dark .monaco-editor .view-line,
-.monaco-workbench.vs-dark .monaco-editor .view-overlays,
-.monaco-workbench.vs-dark .monaco-editor .monaco-scrollable-element,
-.monaco-workbench.vs-dark .monaco-editor .decorationsOverviewRuler,
-.monaco-workbench.vs-dark .monaco-editor .sticky-widget,
-.monaco-workbench.vs-dark .monaco-editor .sticky-widget-lines,
-.monaco-workbench.vs-dark .monaco-editor .sticky-widget-line-numbers,
-.monaco-workbench.vs-dark .monaco-editor .inputarea.ime-input {
-    background: transparent !important;
-    background-color: transparent !important;
-}
-
-.monaco-workbench.vs-dark .part.editor .editor-group-container {
-    background: linear-gradient(${angle}deg, ${darkCardStops}), rgba(18, 22, 28, 0.52) !important;
-    backdrop-filter: blur(14px) !important;
-    -webkit-backdrop-filter: blur(14px) !important;
-    border-radius: ${radius}px !important;
-    border: ${radius > 0 ? '1px solid rgba(255, 255, 255, 0.12)' : 'none'} !important;
-    overflow: hidden !important;
-    box-shadow: ${radius > 0 ? '0 14px 36px rgba(0, 0, 0, 0.52)' : 'none'} !important;
-}
-
-.monaco-workbench.vs-dark .part.editor .title,
-.monaco-workbench.vs-dark .part.editor .title.tabs,
-.monaco-workbench.vs-dark .part.editor .editor-group-container > .title,
-.monaco-workbench.vs-dark .part.editor .tabs-and-actions-container,
-.monaco-workbench.vs-dark .part.editor .tabs-breadcrumbs-container,
-.monaco-workbench.vs-dark .part.editor .editor-group-header {
-    background: linear-gradient(${angle}deg, ${darkCardStops}), rgba(15, 18, 24, 0.44) !important;
-    background-color: transparent !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-}
-
-.monaco-workbench.vs-dark .part.editor .tab.active {
-    background: linear-gradient(${angle}deg, ${darkActiveTabStops}), rgba(30, 36, 48, 0.88) !important;
-    backdrop-filter: blur(16px) !important;
-    -webkit-backdrop-filter: blur(16px) !important;
-    border: 1px solid rgba(255, 255, 255, 0.22) !important;
-    border-top: 3px solid ${stops[0].color} !important;
-    border-bottom: 1px solid transparent !important;
-    border-radius: ${Math.min(8, radius)}px ${Math.min(8, radius)}px 0 0 !important;
-    margin: 3px 2px 0 2px !important;
-    box-shadow: 0 4px 16px ${stops[0].color}40 !important;
-}
-
-.monaco-workbench.vs-dark .part.editor .tab.active .label-name,
-.monaco-workbench.vs-dark .part.editor .tab.active .tab-label a,
-.monaco-workbench.vs-dark .part.editor .tab.active .monaco-icon-label {
-    color: #ffffff !important;
-    font-weight: 700 !important;
-    opacity: 1 !important;
-}
-
-.monaco-workbench.vs-dark .part.editor .tab:not(.active) {
-    background: rgba(0, 0, 0, 0.22) !important;
-    border-radius: ${Math.min(8, radius)}px ${Math.min(8, radius)}px 0 0 !important;
-    margin: 3px 2px 0 2px !important;
-    border: 1px solid transparent !important;
-}
-
-.monaco-workbench.vs-dark .part.editor .tab:not(.active) .label-name,
-.monaco-workbench.vs-dark .part.editor .tab:not(.active) .tab-label a,
-.monaco-workbench.vs-dark .part.editor .tab:not(.active) .monaco-icon-label {
-    color: #cbd5e1 !important;
-    font-weight: 500 !important;
-    opacity: 1 !important;
-}
-
-.monaco-workbench.vs-dark .part.activitybar {
-    background-color: rgba(${rgb1.r}, ${rgb1.g}, ${rgb1.b}, 0.14) !important;
-    backdrop-filter: blur(14px) !important;
-    -webkit-backdrop-filter: blur(14px) !important;
-    margin: 0 !important;
-}
-
-.monaco-workbench.vs-dark .part.activitybar .action-item .action-label {
-    opacity: 1 !important;
-    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5)) !important;
-}
-
-.monaco-workbench.vs-dark .part.activitybar .action-item.checked .action-label {
-    color: #ffffff !important;
-    opacity: 1 !important;
-}
-
-.monaco-workbench.vs-dark .part.sidebar {
-    background: linear-gradient(${angle}deg, ${darkCardStops}), rgba(19, 32, 24, 0.68) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-    margin: 0 !important;
-}
-
-.monaco-workbench.vs-dark .part.panel {
-    background: linear-gradient(${angle}deg, ${darkCardStops}), rgba(27, 23, 37, 0.75) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-    margin: 0 !important;
-}
-
-/* ── 2. LIGHT MODE CANVAS & LAYERS (CRYSTAL CLEAR & HIGH CONTRAST) ────── */
-body.vscode-light,
-.monaco-workbench.vs {
-    background: linear-gradient(${angle}deg, ${lightGradientStops}) !important;
-    background-color: #f6faf8 !important;
-}
-
-.monaco-workbench.vs .part.editor,
-.monaco-workbench.vs .part.editor > .content,
-.monaco-workbench.vs .part.editor .editor-group-container > .editor-container,
-.monaco-workbench.vs .part.editor .editor-instance,
-.monaco-workbench.vs .part.editor .split-view-container,
-.monaco-workbench.vs .part.editor .split-view-view,
-.monaco-workbench.vs .monaco-editor,
-.monaco-workbench.vs .monaco-editor-pane,
-.monaco-workbench.vs .monaco-editor .overflow-guard,
-.monaco-workbench.vs .monaco-editor .monaco-editor-background,
-.monaco-workbench.vs .monaco-editor .margin,
-.monaco-workbench.vs .monaco-editor .glyph-margin,
-.monaco-workbench.vs .monaco-editor .lines-content,
-.monaco-workbench.vs .monaco-editor .view-lines,
-.monaco-workbench.vs .monaco-editor .view-line,
-.monaco-workbench.vs .monaco-editor .view-overlays,
-.monaco-workbench.vs .monaco-editor .monaco-scrollable-element,
-.monaco-workbench.vs .monaco-editor .decorationsOverviewRuler,
-.monaco-workbench.vs .monaco-editor .sticky-widget,
-.monaco-workbench.vs .monaco-editor .sticky-widget-lines,
-.monaco-workbench.vs .monaco-editor .sticky-widget-line-numbers,
-.monaco-workbench.vs .monaco-editor .inputarea.ime-input {
-    background: transparent !important;
-    background-color: transparent !important;
-}
-
-.monaco-workbench.vs .part.editor .editor-group-container {
-    background: linear-gradient(${angle}deg, ${lightCardStops}), rgba(255, 255, 255, 0.85) !important;
-    backdrop-filter: blur(14px) !important;
-    -webkit-backdrop-filter: blur(14px) !important;
-    border-radius: ${radius}px !important;
-    border: ${radius > 0 ? '1px solid rgba(0, 0, 0, 0.08)' : 'none'} !important;
-    overflow: hidden !important;
-    box-shadow: ${radius > 0 ? '0 8px 24px rgba(0, 0, 0, 0.05)' : 'none'} !important;
-}
-
-.monaco-workbench.vs .part.editor .title,
-.monaco-workbench.vs .part.editor .title.tabs,
-.monaco-workbench.vs .part.editor .editor-group-container > .title,
-.monaco-workbench.vs .part.editor .tabs-and-actions-container,
-.monaco-workbench.vs .part.editor .tabs-breadcrumbs-container,
-.monaco-workbench.vs .part.editor .editor-group-header {
-    background: linear-gradient(${angle}deg, ${lightCardStops}), rgba(245, 250, 248, 0.90) !important;
-    background-color: transparent !important;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
-}
-
-/* Light Active Tab - CRISP DARK CHARCOAL TEXT */
-.monaco-workbench.vs .part.editor .tab.active {
-    background: linear-gradient(${angle}deg, ${lightActiveTabStops}), rgba(255, 255, 255, 0.98) !important;
-    backdrop-filter: blur(16px) !important;
-    -webkit-backdrop-filter: blur(16px) !important;
-    border: 1px solid rgba(0, 0, 0, 0.12) !important;
-    border-top: 3px solid ${stops[0].color} !important;
-    border-bottom: 1px solid transparent !important;
-    border-radius: ${Math.min(8, radius)}px ${Math.min(8, radius)}px 0 0 !important;
-    margin: 3px 2px 0 2px !important;
-    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.06) !important;
-}
-
-.monaco-workbench.vs .part.editor .tab.active .label-name,
-.monaco-workbench.vs .part.editor .tab.active .tab-label a,
-.monaco-workbench.vs .part.editor .tab.active .monaco-icon-label {
-    color: #0f172a !important; /* ULTRA DARK CHARCOAL */
-    font-weight: 700 !important;
-    opacity: 1 !important;
-}
-
-/* Light Inactive Tab - READABLE SLATE */
-.monaco-workbench.vs .part.editor .tab:not(.active) {
-    background: rgba(0, 0, 0, 0.04) !important;
-    border-radius: ${Math.min(8, radius)}px ${Math.min(8, radius)}px 0 0 !important;
-    margin: 3px 2px 0 2px !important;
-    border: 1px solid transparent !important;
-}
-
-.monaco-workbench.vs .part.editor .tab:not(.active) .label-name,
-.monaco-workbench.vs .part.editor .tab:not(.active) .tab-label a,
-.monaco-workbench.vs .part.editor .tab:not(.active) .monaco-icon-label {
-    color: #334155 !important; /* DARK SLATE GREY */
-    font-weight: 500 !important;
-    opacity: 1 !important;
-}
-
-.monaco-workbench.vs .part.activitybar {
-    background-color: rgba(${rgb1.r}, ${rgb1.g}, ${rgb1.b}, 0.12) !important;
-    backdrop-filter: blur(14px) !important;
-    -webkit-backdrop-filter: blur(14px) !important;
-    margin: 0 !important;
-}
-
-.monaco-workbench.vs .part.activitybar .action-item .action-label {
-    color: #334155 !important;
-    opacity: 1 !important;
-    filter: none !important;
-}
-
-.monaco-workbench.vs .part.activitybar .action-item.checked .action-label {
-    color: #0f172a !important;
-    opacity: 1 !important;
-}
-
-.monaco-workbench.vs .part.sidebar {
-    background: linear-gradient(${angle}deg, ${lightCardStops}), rgba(240, 252, 245, 0.85) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-    margin: 0 !important;
-}
-
-.monaco-workbench.vs .part.panel {
-    background: linear-gradient(${angle}deg, ${lightCardStops}), rgba(253, 246, 255, 0.88) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-    margin: 0 !important;
-}
-
-/* ── 3. COMMON ROUNDED CORNERS & WIDGETS ──────────────────────────────── */
-.monaco-workbench .part.editor .tab {
-    border: none !important;
-    transition: all 0.15s ease !important;
-}
-
-.monaco-workbench .part.editor .tab-border-top-container,
-.monaco-workbench .part.editor .tab-border-bottom-container {
-    display: none !important;
-}
-
-.monaco-list .monaco-list-row,
-.monaco-list-row,
-.monaco-tree-row {
-    border-radius: ${Math.min(6, radius)}px !important;
-    margin: 1px 4px !important;
-}
-
-.monaco-workbench .part.activitybar .action-item {
-    border-radius: ${Math.min(8, radius)}px !important;
-}
-
-.monaco-breadcrumbs .monaco-breadcrumb-item {
-    border-radius: ${Math.min(4, radius)}px !important;
-    padding: 2px 4px !important;
-}
-
-.monaco-hover,
-.hover-widget,
-.monaco-editor-hover,
-.parameter-hints-widget {
-    backdrop-filter: blur(${blurStrength}px) saturate(190%) !important;
-    -webkit-backdrop-filter: blur(${blurStrength}px) saturate(190%) !important;
-    border-radius: ${radius > 0 ? radius : 8}px !important;
-}
-
-.monaco-editor .suggest-widget {
-    backdrop-filter: blur(${blurStrength}px) saturate(190%) !important;
-    -webkit-backdrop-filter: blur(${blurStrength}px) saturate(190%) !important;
-    border-radius: ${radius > 0 ? radius : 8}px !important;
-}
-
-.quick-input-widget {
-    backdrop-filter: blur(${blurStrength + 4}px) saturate(200%) !important;
-    -webkit-backdrop-filter: blur(${blurStrength + 4}px) saturate(200%) !important;
-    border-radius: ${radius > 0 ? radius + 4 : 10}px !important;
-}
-
-.notifications-toasts .notification-toast {
-    backdrop-filter: blur(${blurStrength}px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(${blurStrength}px) saturate(180%) !important;
-    border-radius: ${radius > 0 ? radius : 8}px !important;
-}
-
-.monaco-editor .find-widget,
-.editor-widget.find-widget {
-    backdrop-filter: blur(${blurStrength}px) !important;
-    -webkit-backdrop-filter: blur(${blurStrength}px) !important;
-    border-radius: ${radius > 0 ? radius : 8}px !important;
-}
-
-.monaco-menu,
-.monaco-menu-container,
-.context-view.monaco-menu-container {
-    backdrop-filter: blur(${blurStrength}px) saturate(190%) !important;
-    -webkit-backdrop-filter: blur(${blurStrength}px) saturate(190%) !important;
-    border-radius: ${Math.min(10, radius > 0 ? radius : 8)}px !important;
-}
-
-.monaco-menu .action-menu-item {
-    border-radius: ${Math.min(6, radius > 0 ? radius - 2 : 6)}px !important;
-    margin: 2px 4px !important;
-}
-`;
-
-        await fs.promises.writeFile(customCssPath, cssContent, 'utf-8');
-    } catch (err) {
-        console.error('Failed to update CSS:', err);
+type OwnedScope = { before: Record<string, unknown>; applied: Record<string, string> };
+export async function applyCustomTheme(input: ThemeConfig) {
+    const cfg = normalizeConfig(input);
+    await cleanupLegacyRootCustomizations();
+    const nitro = vscode.workspace.getConfiguration('gradientNitro');
+    for (const key of ['colorStops', 'roundedCorners', 'borderRadius', 'leftColor', 'rightColor', 'blurStrength', 'neonGlowSpread', 'glassOpacity', 'gradientAngle', 'gradientIntensity', 'accentColor', 'borderColor', 'borderWidth', 'neonGlowIntensity', 'syntaxOverrides', 'fileColors'] as const) await nitro.update(key, cfg[key], vscode.ConfigurationTarget.Global);
+    const name = cfg.themeMode === 'light' ? 'Gradient Nitro Glass Light' : 'Gradient Nitro Glass';
+    const workbench = vscode.workspace.getConfiguration('workbench');
+    const colors = { ...(workbench.inspect<Record<string, any>>('colorCustomizations')?.globalValue || {}) };
+    const scope = '[' + name + ']';
+    const applied = buildColors(cfg);
+    const owned = { ...(extensionContext.globalState.get<Record<string, OwnedScope>>('ownedColors') || {}) };
+    const before = { ...(owned[scope]?.before || {}) };
+    for (const key of Object.keys(applied)) {
+        if (!owned[scope] || colors[scope]?.[key] !== owned[scope].applied[key]) before[key] = colors[scope]?.[key] ?? null;
     }
+    owned[scope] = { before, applied };
+    // Persist recovery information before modifying the user's settings.
+    await extensionContext.globalState.update('ownedColors', owned);
+    colors[scope] = { ...colors[scope], ...applied };
+    await workbench.update('colorCustomizations', colors, vscode.ConfigurationTarget.Global);
+    await tokenSettings.apply(cfg.themeMode, cfg.syntaxOverrides, applied['editor.background']);
+    await workbench.update('colorTheme', name, vscode.ConfigurationTarget.Global);
+    await nativeLayout.apply(cfg.roundedCorners, cfg.neonGlowIntensity > 0);
+    fileColors.refresh();
+    if (!nativeLayout.available && cfg.roundedCorners) vscode.window.showInformationMessage('Native rounded layout requires a VS Code version with workbench.experimental.modernUI. Your theme colors have been applied.');
 }
 
 export async function resetToDefaultSettings() {
-    const defaults = getDefaultConfig();
-    await applyCustomTheme(defaults);
+    await nativeLayout.restore();
+    await tokenSettings.restore();
+    if (vscode.env?.appRoot) await removeLegacyWorkbenchStyles(vscode.env.appRoot, path.join(extensionContext.globalStorageUri.fsPath, 'legacy-backups'));
+    await clearCustomCssFile();
+    await cleanupLegacyRootCustomizations();
+    const workbench = vscode.workspace.getConfiguration('workbench');
+    const colors = { ...(workbench.inspect<Record<string, any>>('colorCustomizations')?.globalValue || {}) };
+    const owned = extensionContext.globalState.get<Record<string, OwnedScope>>('ownedColors') || {};
+    for (const [scope, state] of Object.entries(owned)) {
+        if (!colors[scope]) continue;
+        colors[scope] = { ...colors[scope] };
+        for (const [key, value] of Object.entries(state.applied)) {
+            if (colors[scope][key] !== value) continue;
+            if (state.before[key] == null) delete colors[scope][key];
+            else colors[scope][key] = state.before[key];
+        }
+        if (!Object.keys(colors[scope]).length) delete colors[scope];
+    }
+    await workbench.update('colorCustomizations', Object.keys(colors).length ? colors : undefined, vscode.ConfigurationTarget.Global);
+    await extensionContext.globalState.update('ownedColors', undefined);
+    const nitro = vscode.workspace.getConfiguration('gradientNitro');
+    for (const key of Object.keys(getDefaultConfig())) if (nitro.inspect(key)?.globalValue !== undefined) await nitro.update(key, undefined, vscode.ConfigurationTarget.Global);
+    await workbench.update('colorTheme', 'Default Dark Modern', vscode.ConfigurationTarget.Global);
 }

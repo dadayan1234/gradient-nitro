@@ -1,0 +1,9 @@
+# Release notes
+
+DONE  Native rounded workspace
+DONE  Language-aware syntax colors
+TODO  Try a new accent palette
+
+Version: 1.2.0
+Preview: https://example.com/preview
+Contact: hello@example.com

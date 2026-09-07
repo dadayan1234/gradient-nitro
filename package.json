@@ -1,8 +1,8 @@
 {
   "name": "gradient-nitro-glass",
   "displayName": "Gradient Nitro Glass Theme",
-  "description": "Elegant horizontal gradient theme with developer typography, eye-friendly soft contrast, frozen glass tooltips, neon glow, and an interactive theme customizer UI.",
-  "version": "1.0.8",
+  "description": "Colorful dark and light themes with native rounded UI, restrained neon shadows, language-aware syntax colors and an interactive customizer.",
+  "version": "1.2.0",
   "publisher": "dadayan1234",
   "icon": "icon.png",
   "license": "MIT",
@@ -11,7 +11,7 @@
     "url": "https://github.com/dadayan1234/gradient-nitro.git"
   },
   "engines": {
-    "vscode": "^1.80.0"
+    "vscode": "^1.129.0"
   },
   "categories": [
     "Themes"
@@ -26,7 +26,9 @@
     "customizer",
     "glassmorphism"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "themes": [
@@ -82,12 +84,14 @@
         "gradientNitro.roundedCorners": {
           "type": "boolean",
           "default": true,
-          "description": "Enable modern rounded floating window sections & panels"
+          "description": "Enable native VS Code Modern UI while a Nitro theme is active. Previous layout settings are restored when leaving Nitro."
         },
         "gradientNitro.borderRadius": {
           "type": "number",
           "default": 12,
-          "description": "Border corner radius (px) for floating windows, panels and tabs"
+          "description": "Preview corner radius in px. Native Modern UI uses VS Code?s own radius scale.",
+          "minimum": 0,
+          "maximum": 24
         },
         "gradientNitro.leftColor": {
           "type": "string",
@@ -102,36 +106,306 @@
         "gradientNitro.blurStrength": {
           "type": "number",
           "default": 24,
-          "description": "Gaussian blur strength (px) for floating widgets and tooltips"
+          "description": "Gaussian blur strength (px) for floating widgets and tooltips (Customizer preview only; native VS Code layout is unchanged.)",
+          "minimum": 0,
+          "maximum": 40
         },
         "gradientNitro.neonGlowSpread": {
           "type": "number",
           "default": 35,
-          "description": "Neon diffusion glow spread (px) around popups and tooltips"
+          "description": "Neon diffusion glow spread (px) around popups and tooltips (Customizer preview only; native VS Code layout is unchanged.)",
+          "minimum": 0,
+          "maximum": 60
         },
         "gradientNitro.glassOpacity": {
           "type": "number",
           "default": 0.7,
-          "description": "Frosted glass opacity (0.50 to 0.95)"
+          "description": "Frosted glass opacity (0.50 to 0.95) (Customizer preview only; native VS Code layout is unchanged.)",
+          "minimum": 0.5,
+          "maximum": 1
         },
         "gradientNitro.gradientAngle": {
           "type": "number",
           "default": 90,
-          "description": "Custom gradient angle in degrees (0 to 360) across whole VS Code page"
+          "description": "Custom gradient angle in degrees (0 to 360) across whole VS Code page (Customizer preview only; native VS Code layout is unchanged.)",
+          "minimum": 0,
+          "maximum": 360
         },
         "gradientNitro.gradientIntensity": {
           "type": "number",
-          "default": 0.25,
-          "description": "Whole-page gradient visibility intensity (0.05 to 0.60)"
+          "default": 0.28,
+          "description": "Palette tint intensity (0 to 0.60).",
+          "minimum": 0,
+          "maximum": 0.6
+        },
+        "gradientNitro.accentColor": {
+          "type": "string",
+          "default": "#00D2FF",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "Accent color; text contrast is adjusted automatically."
+        },
+        "gradientNitro.borderColor": {
+          "type": "string",
+          "default": "#64748B",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "Panel and widget border color."
+        },
+        "gradientNitro.borderWidth": {
+          "type": "number",
+          "default": 1,
+          "minimum": 0,
+          "maximum": 4,
+          "description": "Preview border thickness in px. Zero also hides native theme borders; VS Code controls nonzero border thickness."
+        },
+        "gradientNitro.neonGlowIntensity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.4,
+          "default": 0.18,
+          "description": "Accent-tinted widget shadow intensity. Light mode uses a softer shadow; zero disables shadows while Nitro is active."
+        },
+        "gradientNitro.fileColors": {
+          "type": "boolean",
+          "default": true,
+          "description": "Color file labels in Explorer and tabs by file family while a Nitro theme is active. Source-control decorations can take precedence."
+        },
+        "gradientNitro.syntaxOverrides": {
+          "type": "object",
+          "default": {},
+          "description": "Syntax color overrides keyed by all or language ID (typescript, python, dart, markdown, dotenv, plaintext, etc.). Colors are contrast-adjusted for the selected mode. Apply from the customizer.",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "variable": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "parameter": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "property": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "keyword": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "function": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "type": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "string": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "number": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "constant": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "operator": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "comment": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "tag": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "attribute": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "heading": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "link": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "text": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              }
+            }
+          }
         }
       }
-    }
+    },
+    "languages": [
+      {
+        "id": "dotenv",
+        "aliases": [
+          "Environment",
+          "dotenv"
+        ],
+        "filenames": [
+          ".env"
+        ],
+        "extensions": [
+          ".env"
+        ],
+        "filenamePatterns": [
+          ".env.*"
+        ]
+      }
+    ],
+    "grammars": [
+      {
+        "language": "dotenv",
+        "scopeName": "source.dotenv.nitro",
+        "path": "./syntaxes/dotenv.tmLanguage.json"
+      },
+      {
+        "language": "plaintext",
+        "scopeName": "text.plain.nitro",
+        "path": "./syntaxes/plaintext.tmLanguage.json"
+      }
+    ],
+    "colors": [
+      {
+        "id": "gradientNitro.file.javascript",
+        "description": "Nitro file label color: javascript",
+        "defaults": {
+          "dark": "#F8D878",
+          "light": "#806000",
+          "highContrast": "#FFFFFF",
+          "highContrastLight": "#000000"
+        }
+      },
+      {
+        "id": "gradientNitro.file.typescript",
+        "description": "Nitro file label color: typescript",
+        "defaults": {
+          "dark": "#8BD5FF",
+          "light": "#075F9C",
+          "highContrast": "#FFFFFF",
+          "highContrastLight": "#000000"
+        }
+      },
+      {
+        "id": "gradientNitro.file.python",
+        "description": "Nitro file label color: python",
+        "defaults": {
+          "dark": "#ADE580",
+          "light": "#397021",
+          "highContrast": "#FFFFFF",
+          "highContrastLight": "#000000"
+        }
+      },
+      {
+        "id": "gradientNitro.file.dart",
+        "description": "Nitro file label color: dart",
+        "defaults": {
+          "dark": "#68D9EF",
+          "light": "#086B86",
+          "highContrast": "#FFFFFF",
+          "highContrastLight": "#000000"
+        }
+      },
+      {
+        "id": "gradientNitro.file.systems",
+        "description": "Nitro file label color: systems",
+        "defaults": {
+          "dark": "#FFB870",
+          "light": "#A34E16",
+          "highContrast": "#FFFFFF",
+          "highContrastLight": "#000000"
+        }
+      },
+      {
+        "id": "gradientNitro.file.application",
+        "description": "Nitro file label color: application",
+        "defaults": {
+          "dark": "#C4AEFF",
+          "light": "#6941AC",
+          "highContrast": "#FFFFFF",
+          "highContrastLight": "#000000"
+        }
+      },
+      {
+        "id": "gradientNitro.file.markup",
+        "description": "Nitro file label color: markup",
+        "defaults": {
+          "dark": "#F49AC2",
+          "light": "#AA2365",
+          "highContrast": "#FFFFFF",
+          "highContrastLight": "#000000"
+        }
+      },
+      {
+        "id": "gradientNitro.file.styles",
+        "description": "Nitro file label color: styles",
+        "defaults": {
+          "dark": "#EDB5FF",
+          "light": "#873DA5",
+          "highContrast": "#FFFFFF",
+          "highContrastLight": "#000000"
+        }
+      },
+      {
+        "id": "gradientNitro.file.data",
+        "description": "Nitro file label color: data",
+        "defaults": {
+          "dark": "#79E2D0",
+          "light": "#087765",
+          "highContrast": "#FFFFFF",
+          "highContrastLight": "#000000"
+        }
+      },
+      {
+        "id": "gradientNitro.file.markdown",
+        "description": "Nitro file label color: markdown",
+        "defaults": {
+          "dark": "#B7AAFF",
+          "light": "#6941AC",
+          "highContrast": "#FFFFFF",
+          "highContrastLight": "#000000"
+        }
+      },
+      {
+        "id": "gradientNitro.file.environment",
+        "description": "Nitro file label color: environment",
+        "defaults": {
+          "dark": "#F5C38B",
+          "light": "#97511D",
+          "highContrast": "#FFFFFF",
+          "highContrastLight": "#000000"
+        }
+      },
+      {
+        "id": "gradientNitro.file.text",
+        "description": "Nitro file label color: text",
+        "defaults": {
+          "dark": "#D8E2EF",
+          "light": "#25364B",
+          "highContrast": "#FFFFFF",
+          "highContrastLight": "#000000"
+        }
+      }
+    ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run themes:generate",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "package": "vsce package"
+    "package": "vsce package",
+    "test": "npm run compile && node --test tests/theme.test.cjs",
+    "themes:generate": "npm run compile && node scripts/generate-themes.cjs"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

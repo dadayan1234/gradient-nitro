@@ -1,0 +1,11 @@
+{
+  "name": "Nitro Plain Text",
+  "scopeName": "text.plain.nitro",
+  "patterns": [
+    { "name": "markup.underline.link.nitro", "match": "https?://[^\\s<>]+|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}" },
+    { "name": "keyword.other.nitro", "match": "\\b(?:TODO|FIXME|NOTE|IMPORTANT|WARNING|DONE)\\b" },
+    { "name": "constant.numeric.nitro", "match": "\\b[0-9]+(?:[.:/-][0-9]+)*\\b" },
+    { "name": "markup.heading.nitro", "match": "^#{1,6}\\s+.*$" },
+    { "name": "constant.language.nitro", "match": "\\b(?:true|false|null|yes|no)\\b" }
+  ]
+}

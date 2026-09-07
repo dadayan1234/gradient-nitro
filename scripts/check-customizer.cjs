@@ -1,0 +1,56 @@
+// Optional browser smoke test: PLAYWRIGHT_MODULE points at a local Playwright install.
+const fs = require('fs');
+const path = require('path');
+const assert = require('assert/strict');
+const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const { harness } = require('../tests/harness.cjs');
+(async () => {
+  const h = harness(); h.commands['gradientNitro.openCustomizer']();
+  const browser = await chromium.launch({ channel: 'msedge', headless: true });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1100, height: 900 } });
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.addInitScript(() => { window.messages = []; window.acquireVsCodeApi = () => ({ postMessage: message => window.messages.push(message) }); });
+    const html = h.getPanel().webview.html;
+    const output = path.join(process.env.TEMP, 'gradient-nitro-preview');
+    fs.mkdirSync(output, { recursive: true });
+    fs.writeFileSync(path.join(output, 'customizer.html'), html);
+    await page.goto('file:///' + path.join(output, 'customizer.html').replace(/\\/g, '/'));
+    await page.locator('#btnModeLight').click();
+    await page.locator('#syntaxLanguage').selectOption('dotenv');
+    assert.match(await page.locator('#mockCode').innerText(), /APP_NAME/);
+    await page.locator('#syntax-keyword').fill('#ffffff');
+    await page.locator('#syntax-keyword').dispatchEvent('input');
+    assert.ok(await page.locator('#mockup').evaluate(el => el.classList.contains('light-mode')));
+    await page.locator('#gradientIntensity').fill('0');
+    await page.locator('#borderWidth').fill('0');
+    await page.getByRole('button', { name: 'Apply Real-time Changes' }).click();
+    const message = await page.evaluate(() => window.messages.at(-1));
+    assert.equal(message.config.gradientIntensity, 0);
+    assert.equal(message.config.borderWidth, 0);
+    assert.equal(message.config.themeMode, 'light');
+    assert.equal(message.config.syntaxOverrides.dotenv.keyword, '#ffffff');
+    const previous = message.config.colorStops;
+    await page.getByRole('button', { name: 'Surprise me' }).click();
+    await page.getByRole('button', { name: 'Apply Real-time Changes' }).click();
+    assert.notDeepEqual(previous, await page.evaluate(() => window.messages.at(-1).config.colorStops));
+    await page.locator('.hex-input').first().fill('<img src=x onerror=alert(1)>');
+    await page.locator('#accentColor').focus();
+    assert.equal(await page.locator('.stop-row img').count(), 0);
+    await page.evaluate(config => window.dispatchEvent(new MessageEvent('message', { data: { command: 'syncConfig', config: { ...config, themeMode: 'light', gradientIntensity: 0, borderWidth: 0, borderRadius: 0 } } })), h.extension.getDefaultConfig());
+    assert.equal(await page.locator('#gradientIntensity').inputValue(), '0');
+    assert.equal(await page.locator('#borderWidth').inputValue(), '0');
+    await page.locator('#mockup').screenshot({ path: path.join(output, 'light-preview.png') });
+    await page.locator('#btnModeDark').click();
+    await page.locator('#neonGlowIntensity').fill('0');
+    assert.equal(await page.locator('#mockTooltip').evaluate(el => getComputedStyle(el).boxShadow), 'none');
+    await page.locator('#mockup').screenshot({ path: path.join(output, 'dark-preview.png') });
+    await page.setViewportSize({ width: 390, height: 844 });
+    const overflow = await page.evaluate(() => [...document.querySelectorAll('*')].filter(el => el.getBoundingClientRect().right > innerWidth).map(el => ({ tag: el.tagName, class: el.className, width: el.getBoundingClientRect().width })).slice(0, 15));
+    if (overflow.length) console.log(overflow);
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'No horizontal overflow on small screens');
+    assert.deepEqual(errors, []);
+    console.log('Browser interactions passed. Screenshots: ' + output);
+  } finally { await browser.close(); }
+})().catch(error => { console.error(error); process.exitCode = 1; });

@@ -1,0 +1,17 @@
+{
+  "name": "Nitro Environment",
+  "scopeName": "source.dotenv.nitro",
+  "patterns": [
+    { "name": "comment.line.number-sign.dotenv", "match": "^\\s*#.*$" },
+    { "begin": "^\\s*(?:(export)\\s+)?([A-Za-z_][A-Za-z0-9_]*)(\\s*=\\s*)", "end": "$", "beginCaptures": { "1": { "name": "keyword.control.dotenv" }, "2": { "name": "variable.other.property.dotenv" }, "3": { "name": "keyword.operator.assignment.dotenv" } }, "patterns": [
+      { "name": "string.quoted.double.dotenv", "begin": "\"", "end": "\"", "patterns": [ { "match": "\\\\.", "name": "constant.character.escape.dotenv" }, { "include": "#interpolation" } ] },
+      { "name": "string.quoted.single.dotenv", "begin": "'", "end": "'" },
+      { "name": "comment.line.number-sign.dotenv", "match": "(?<=\\s)#.*$" },
+      { "include": "#interpolation" },
+      { "name": "constant.language.boolean.dotenv", "match": "\\b(?:true|false|null)\\b" },
+      { "name": "constant.numeric.dotenv", "match": "\\b[0-9]+(?:\\.[0-9]+)?\\b" },
+      { "name": "string.unquoted.dotenv", "match": "[^\\s$#]+" }
+    ] }
+  ],
+  "repository": { "interpolation": { "name": "variable.other.interpolation.dotenv", "match": "\\$\\{[A-Za-z_][A-Za-z0-9_]*(?::[-+?][^}]*)?\\}|\\$[A-Za-z_][A-Za-z0-9_]*" } }
+}
