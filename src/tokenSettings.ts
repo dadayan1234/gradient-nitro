@@ -7,11 +7,11 @@ const equal = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b
 const settings = ['tokenColorCustomizations', 'semanticTokenColorCustomizations'] as const;
 export class TokenSettings {
     constructor(private readonly state: vscode.Memento) {}
-    async apply(mode: 'dark' | 'light', overrides: LanguageOverrides, background: string): Promise<void> {
+    async apply(mode: 'dark' | 'light', overrides: LanguageOverrides, background: string | string[]): Promise<void> {
         const syntax = buildSyntax(mode, overrides, background);
         const scope = mode === 'dark' ? '[Gradient Nitro Glass]' : '[Gradient Nitro Glass Light]';
         const editor = vscode.workspace.getConfiguration('editor');
-        const owned = this.state.get<Ownership>('ownedSyntax') || {};
+        const owned: Ownership = JSON.parse(JSON.stringify(this.state.get<Ownership>('ownedSyntax') || {}));
         for (const key of settings) {
             const colors = { ...(editor.inspect<Record<string, any>>(key)?.globalValue || {}) };
             const current = { ...colors[scope] };

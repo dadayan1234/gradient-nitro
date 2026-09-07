@@ -1,0 +1,37 @@
+{
+  "editor.fontFamily": "'Fira Code', monospace",
+  "editor.fontSize": 16,
+  "editor.lineHeight": 22,
+  "editor.fontLigatures": true,
+  "editor.fontWeight": "400",
+  "gradientNitro.colorStops": [
+    {
+      "color": "#480f40",
+      "offset": 52
+    },
+    {
+      "color": "#00118f",
+      "offset": 100
+    }
+  ],
+  "gradientNitro.roundedCorners": true,
+  "gradientNitro.borderRadius": 13,
+  "gradientNitro.leftColor": "#480f40",
+  "gradientNitro.rightColor": "#00118f",
+  "gradientNitro.blurStrength": 20,
+  "gradientNitro.neonGlowSpread": 38,
+  "gradientNitro.glassOpacity": 0.86,
+  "gradientNitro.gradientAngle": 0,
+  "gradientNitro.gradientIntensity": 0.28,
+  "gradientNitro.accentColor": "#00852c",
+  "gradientNitro.borderColor": "#b13dff",
+  "gradientNitro.borderWidth": 1,
+  "gradientNitro.neonGlowIntensity": 0.22,
+  "gradientNitro.syntaxOverrides": {},
+  "gradientNitro.fileColors": true,
+  "workbench.colorTheme": "Gradient Nitro Glass",
+  "gradientNitro.borderEnabled": true,
+  "gradientNitro.workbenchEffects": true,
+  "gradientNitro.darkIntensity": 0.25,
+  "gradientNitro.lightIntensity": 0.55
+}

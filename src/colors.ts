@@ -21,3 +21,13 @@ export function readable(color: string, background: string, minimum = 4.5): stri
 export function onColor(background: string): string {
     return contrast('#000000', background) > contrast('#ffffff', background) ? '#000000' : '#ffffff';
 }
+export function readableAcross(color: string, backgrounds: string[], minimum = 4.5): string {
+    if (backgrounds.every(background => contrast(color, background) >= minimum)) return color;
+    const score = (value: string) => Math.min(...backgrounds.map(background => contrast(value, background)));
+    const target = score('#000000') > score('#ffffff') ? '#000000' : '#ffffff';
+    for (let i = 1; i <= 100; i++) {
+        const result = blend(target, color, i / 100);
+        if (score(result) >= minimum) return result;
+    }
+    return target;
+}

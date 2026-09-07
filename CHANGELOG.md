@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.3.1] - 2026-09-07
+
+- Darken panel headers and add a contrasting active-tab surface, readable labels and accent underline.
+- Apply editor font family, size, weight, line height and ligatures; restore owned preferences on reset or theme exit.
+- Connect glass opacity to translucent popup surfaces so backdrop blur is visible; verify live glow intensity and spread.
+- Refresh every preview with the current plum/blue palette and green accent.
+
+## [1.3.0] - 2026-09-07
+
+- Add a session-bound renderer helper for gradients across the editor and workbench, adjustable radius, consistent border strokes and borderless mode.
+- Remove live CSS when switching themes or losing the extension session; back up and remove the helper on Reset.
+- Add independent dark/light color intensity and contrasting accent-colored activity icons.
+- Keep syntax readable across gradient endpoints and refine popup glow.
+- Refresh purple-palette screenshots, Marketplace keywords, README and the minimal glass monogram logo.
+
 ## [1.2.0] - 2026-09-07
 
 - Connect rounded corners to native VS Code Modern UI with ownership-aware restoration on theme switch, reset and deactivation.

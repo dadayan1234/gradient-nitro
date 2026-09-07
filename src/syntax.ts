@@ -1,4 +1,4 @@
-import { readable } from './colors';
+import { readableAcross } from './colors';
 
 export const syntaxRoles = ['variable', 'parameter', 'property', 'keyword', 'function', 'type', 'string', 'number', 'constant', 'operator', 'comment', 'tag', 'attribute', 'heading', 'link', 'text'] as const;
 export type SyntaxRole = typeof syntaxRoles[number];
@@ -47,17 +47,17 @@ export function normalizeSyntaxOverrides(input: unknown): LanguageOverrides {
     }
     return result;
 }
-export function syntaxPalette(mode: 'dark' | 'light', language = 'all', overrides: LanguageOverrides = {}, background = mode === 'dark' ? '#11151d' : '#f8fafc'): SyntaxPalette {
+export function syntaxPalette(mode: 'dark' | 'light', language = 'all', overrides: LanguageOverrides = {}, background: string | string[] = mode === 'dark' ? '#11151d' : '#f8fafc'): SyntaxPalette {
     const palette = defaultSyntaxPalette(mode);
     // A distinct keyword family makes language changes visible without randomizing token meaning.
     const keywordFamilies: Record<string, SyntaxRole> = { javascript: 'constant', typescript: 'keyword', python: 'keyword', dart: 'type', go: 'type', rust: 'number', java: 'operator', c: 'operator', cpp: 'operator', csharp: 'operator', php: 'keyword', ruby: 'keyword', swift: 'number', kotlin: 'function', shellscript: 'function', powershell: 'function', sql: 'type' };
     if (keywordFamilies[language]) palette.keyword = palette[keywordFamilies[language]];
     Object.assign(palette, overrides.all, overrides[language]);
-    for (const role of syntaxRoles) palette[role] = readable(palette[role], background);
+    for (const role of syntaxRoles) palette[role] = readableAcross(palette[role], Array.isArray(background) ? background : [background]);
     return palette;
 }
 export interface TextMateRule { name: string; scope: string[]; settings: { foreground: string; fontStyle?: string } }
-export function buildSyntax(mode: 'dark' | 'light', input: unknown = {}, background?: string) {
+export function buildSyntax(mode: 'dark' | 'light', input: unknown = {}, background?: string | string[]) {
     const overrides = normalizeSyntaxOverrides(input);
     const tokenColors: TextMateRule[] = [];
     const semanticTokenColors: Record<string, string | { foreground: string; fontStyle: string }> = {};

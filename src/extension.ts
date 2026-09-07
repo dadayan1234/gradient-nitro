@@ -71,9 +71,12 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
-import { blend, readable, onColor } from './colors';
+import { blend, readable, readableAcross, onColor } from './colors';
+import { buildEffects, gradientSurfaces } from './effects';
+import { RuntimeSession, installRuntime } from './runtime';
 import { removeLegacyWorkbenchStyles } from './legacy';
 import { NativeLayout } from './layout';
+import { Typography, fontKeys } from './typography';
 import { TokenSettings } from './tokenSettings';
 import { FileColors, fileFamilies } from './files';
 import { LanguageOverrides, normalizeSyntaxOverrides, syntaxRoles, languageScopes, syntaxPalette } from './syntax';
@@ -81,8 +84,33 @@ import { syntaxSamples } from './samples';
 
 let extensionContext: vscode.ExtensionContext;
 let nativeLayout: NativeLayout;
+let typography: Typography;
 let tokenSettings: TokenSettings;
 let fileColors: FileColors;
+const runtime = new RuntimeSession();
+async function syncEffects(cfg?: ThemeConfig) {
+    if (!vscode.env?.appRoot || !extensionContext.globalStorageUri) return;
+    if (!cfg?.workbenchEffects) {
+        await runtime.stop();
+        if (cfg) await installRuntime(vscode.env.appRoot, extensionContext.extensionUri.fsPath, path.join(extensionContext.globalStorageUri.fsPath, 'runtime-backups'), false);
+        return;
+    }
+    const changed = await installRuntime(vscode.env.appRoot, extensionContext.extensionUri.fsPath, path.join(extensionContext.globalStorageUri.fsPath, 'runtime-backups'), true);
+    await runtime.start();
+    runtime.update(buildEffects(cfg), cfg.themeMode === 'light');
+    const wb = vscode.workspace.getConfiguration('workbench');
+    const colors = { ...(wb.inspect<Record<string, any>>('colorCustomizations')?.globalValue || {}) };
+    const scope = cfg.themeMode === 'light' ? '[Gradient Nitro Glass Light]' : '[Gradient Nitro Glass]';
+    colors[scope] = { ...colors[scope], 'gradientNitro.runtime': runtime.marker };
+    const owned = JSON.parse(JSON.stringify(extensionContext.globalState.get<Record<string, OwnedScope>>('ownedColors') || {}));
+    for (const key of ['terminal.background', 'minimap.background']) {
+        if (owned[scope]) owned[scope].applied[key] = '#00000000';
+        colors[scope][key] = '#00000000';
+    }
+    await extensionContext.globalState.update('ownedColors', owned);
+    await wb.update('colorCustomizations', colors, vscode.ConfigurationTarget.Global);
+    if (changed) void vscode.window.showInformationMessage('Workbench effects installed. Reload Window once to enable live gradients, borders and radius.', 'Reload Window').then(choice => { if (choice === 'Reload Window') void vscode.commands.executeCommand('workbench.action.reloadWindow'); });
+}
 let pending: Promise<unknown> = Promise.resolve();
 function enqueue(action: () => Promise<void>): Promise<void> {
     const next = pending.then(action);
@@ -92,6 +120,7 @@ function enqueue(action: () => Promise<void>): Promise<void> {
 export function activate(context: vscode.ExtensionContext) {
     extensionContext = context;
     nativeLayout = new NativeLayout(context.globalState);
+    typography = new Typography(context.globalState);
     tokenSettings = new TokenSettings(context.globalState);
     fileColors = new FileColors();
     context.subscriptions.push(
@@ -121,9 +150,11 @@ async function syncNativeLayout() {
     if (theme === 'Gradient Nitro Glass' || theme === 'Gradient Nitro Glass Light') {
         const cfg = getCurrentConfig();
         await nativeLayout.apply(cfg.roundedCorners, cfg.neonGlowIntensity > 0);
-    } else await nativeLayout.restore();
+        if (vscode.workspace.getConfiguration('gradientNitro').inspect('fontFamily')?.globalValue !== undefined) await typography.apply(normalizeConfig(cfg));
+        await syncEffects(normalizeConfig(cfg));
+    } else { await runtime.stop(); await typography.restore(); await nativeLayout.restore(); }
 }
-export async function deactivate() { await pending; await nativeLayout?.restore(); }
+export async function deactivate() { await pending; await runtime.stop(); await typography?.restore(); await nativeLayout?.restore(); }
 
 export interface ColorStop {
     color: string;
@@ -135,6 +166,10 @@ export interface ThemeConfig {
     accentColor: string;
     borderColor: string;
     borderWidth: number;
+    borderEnabled: boolean;
+    workbenchEffects: boolean;
+    darkIntensity: number;
+    lightIntensity: number;
     neonGlowIntensity: number;
     syntaxOverrides: LanguageOverrides;
     fileColors: boolean;
@@ -676,7 +711,7 @@ class ThemeCustomizerPanel {
             </div>
         </div>
 
-        <p class="form-desc">Apply updates colors, syntax and native rounded layout. Shadow tint applies to widgets that support theme shadow colors; Modern UI can use neutral shadows. VS Code controls native corner sizes and shadow geometry; custom radius, gradient and blur below are preview effects.</p>
+        <p class="form-desc">Apply updates colors and syntax. Enable live workbench effects for editor gradients, exact corner radius, border thickness and popup glow. First use requires one window reload.</p>
         <!-- Multi-Stop Gradient Palette Bar -->
         <div class="card">
             <h2><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M4 17h16M8 4v6m8 4v6"/></svg> Multi-Stop Gradient Palette Bar</h2>
@@ -735,7 +770,7 @@ class ThemeCustomizerPanel {
             <div class="form-row">
                 <div>
                     <div class="form-label">Preview Corner Radius</div>
-                    <div class="form-desc">Native Modern UI uses its own radius scale; this slider adjusts the preview</div>
+                    <div class="form-desc">Corner radius for panels, tabs and controls with live effects enabled</div>
                 </div>
                 <div class="slider-wrapper">
                     <input type="range" id="borderRadius" min="0" max="24" value="${config.borderRadius}" oninput="updateRadius()">
@@ -771,7 +806,7 @@ class ThemeCustomizerPanel {
 
             <div class="form-row">
                 <div>
-                    <div class="form-label">Palette Color Intensity</div>
+                    <div class="form-label">Preset intensity (legacy)</div>
                     <div class="form-desc">Color tint strength across native editor and panel surfaces</div>
                 </div>
                 <div class="slider-wrapper">
@@ -781,9 +816,17 @@ class ThemeCustomizerPanel {
             </div>
         </div>
 
+        <div class="card">
+            <h2>Workbench effects</h2>
+            <p>Live gradients, radius and borders across the editor and panels. First use installs a small workbench helper and requires Reload Window. Switching themes or stopping the extension removes the live styles.</p>
+            <label><input type="checkbox" id="workbenchEffects" ${config.workbenchEffects ? 'checked' : ''}> Enable live workbench effects</label>
+            <div class="form-row"><label for="darkIntensity">Dark color intensity</label><input type="range" id="darkIntensity" min="0" max="100" value="${config.darkIntensity * 100}" oninput="renderMockup()"><output id="darkIntensityVal"></output></div>
+            <div class="form-row"><label for="lightIntensity">Light color intensity</label><input type="range" id="lightIntensity" min="0" max="100" value="${config.lightIntensity * 100}" oninput="renderMockup()"><output id="lightIntensityVal"></output></div>
+            <label><input type="checkbox" id="borderEnabled" ${config.borderEnabled ? 'checked' : ''} onchange="renderMockup()"> Show borders (uncheck for borderless)</label>
+        </div>
         <!-- Typography Studio -->
         <div class="card">
-            <h2><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M4 17h16M8 4v6m8 4v6"/></svg> Custom Font Preview</h2>
+            <h2><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M4 17h16M8 4v6m8 4v6"/></svg> Editor Typography</h2>
             <div class="form-row">
                 <div>
                     <div class="form-label">Font Family</div>
@@ -847,10 +890,10 @@ class ThemeCustomizerPanel {
         <!-- Frozen Glass Controls -->
         <div class="card">
             <h2><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M4 17h16M8 4v6m8 4v6"/></svg> Shadows &amp; Glass</h2>
-            <div class="form-row"><label class="form-label" for="neonGlowIntensity">Shadow tint / preview neon</label><div class="slider-wrapper"><input type="range" id="neonGlowIntensity" min="0" max="40" value="${Math.round(config.neonGlowIntensity * 100)}" oninput="renderMockup()"><output id="glowIntensityVal" class="slider-val"></output></div></div>
+            <div class="form-row"><label class="form-label" for="neonGlowIntensity">Shadow intensity</label><div class="slider-wrapper"><input type="range" id="neonGlowIntensity" min="0" max="40" value="${Math.round(config.neonGlowIntensity * 100)}" oninput="renderMockup()"><output id="glowIntensityVal" class="slider-val"></output></div></div>
             <div class="form-row">
                 <div>
-                    <div class="form-label">Gaussian Blur (Preview)</div>
+                    <div class="form-label">Glass Blur</div>
                     <div class="form-desc">Background glass blur intensity</div>
                 </div>
                 <div class="slider-wrapper">
@@ -860,7 +903,7 @@ class ThemeCustomizerPanel {
             </div>
             <div class="form-row">
                 <div>
-                    <div class="form-label">Neon Spread (Preview)</div>
+                    <div class="form-label">Neon Spread</div>
                     <div class="form-desc">Glow aura radius around floating widgets</div>
                 </div>
                 <div class="slider-wrapper">
@@ -870,7 +913,7 @@ class ThemeCustomizerPanel {
             </div>
             <div class="form-row">
                 <div>
-                    <div class="form-label">Glass Opacity (Preview)</div>
+                    <div class="form-label">Glass Opacity</div>
                     <div class="form-desc">Translucency of tooltips and popups</div>
                 </div>
                 <div class="slider-wrapper">
@@ -884,7 +927,7 @@ class ThemeCustomizerPanel {
             <h2><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16M4 17h16M8 4v6m8 4v6"/></svg> Accent &amp; Borders</h2>
             <div class="form-row"><label for="accentColor" class="form-label">Accent color</label><input type="color" id="accentColor" value="${config.accentColor}" oninput="renderMockup()"></div>
             <div class="form-row"><label for="borderColor" class="form-label">Border color</label><input type="color" id="borderColor" value="${config.borderColor}" oninput="renderMockup()"></div>
-            <div class="form-row"><label for="borderWidth" class="form-label">Border thickness (preview only)</label><div class="slider-wrapper"><input type="range" id="borderWidth" min="0" max="4" step="0.5" value="${config.borderWidth}" oninput="renderMockup()"><output id="borderWidthVal" class="slider-val"></output></div></div>
+            <div class="form-row"><label for="borderWidth" class="form-label">Border thickness</label><div class="slider-wrapper"><input type="range" id="borderWidth" min="0" max="4" step="0.5" value="${config.borderWidth}" oninput="renderMockup()"><output id="borderWidthVal" class="slider-val"></output></div></div>
             <p class="form-desc">Text contrast is adjusted automatically for your selected mode and accent.</p>
             <button class="btn btn-secondary" onclick="surpriseMe()"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m4 4 16 16M4 20l6-6m4-4 6-6m-5 0h5v5m-5 11h5v-5"/></svg> Surprise me</button>
         </div>
@@ -1154,6 +1197,7 @@ class ThemeCustomizerPanel {
             document.documentElement.style.setProperty('--blur', blur + 'px');
             document.documentElement.style.setProperty('--spread', spread + 'px');
             document.documentElement.style.setProperty('--opacity', opacity / 100);
+            renderMockup();
         }
 
         function hexToRgba(hex, alpha) {
@@ -1174,18 +1218,23 @@ class ThemeCustomizerPanel {
             document.getElementById('accentColor').value = color((hue + 180) % 360);
             document.getElementById('borderColor').value = color((hue + 90) % 360);
             document.getElementById('gradientIntensity').value = 15 + Math.floor(Math.random() * 25);
+            document.getElementById('darkIntensity').value = 50 + Math.floor(Math.random() * 40);
+            document.getElementById('lightIntensity').value = 40 + Math.floor(Math.random() * 40);
             document.getElementById('gradientAngle').value = Math.floor(Math.random() * 360);
             renderStopsList(); updateIntensity(); updateAngle();
         }
         function renderMockup() {
             renderCodeSample();
-            const width = document.getElementById('borderWidth').value;
+            const width = document.getElementById('borderEnabled').checked ? document.getElementById('borderWidth').value : 0;
+            for (const mode of ['dark', 'light']) document.getElementById(mode + 'IntensityVal').textContent = document.getElementById(mode + 'Intensity').value + '%';
             const border = document.getElementById('borderColor').value;
             const accent = document.getElementById('accentColor').value;
             const glow = Number(document.getElementById('neonGlowIntensity').value) / 100;
             document.getElementById('glowIntensityVal').textContent = Math.round(glow * 100) + '%';
             const tooltip = document.getElementById('mockTooltip');
-            const spread = Math.min(32, Number(document.getElementById('neonSpread').value));
+            const spread = Number(document.getElementById('neonSpread').value);
+            tooltip.style.background = hexToRgba(currentMode === 'light' ? '#f5f2fa' : '#14101e', Number(document.getElementById('glassOpacity').value) / 100);
+            tooltip.style.backdropFilter = 'blur(' + document.getElementById('blurStrength').value + 'px)';
             const alpha = glow * (currentMode === 'light' ? 0.65 : 1);
             tooltip.style.boxShadow = glow === 0 ? 'none' : '0 6px 16px -8px rgba(0,0,0,0.25), 0 0 ' + spread + 'px -4px ' + hexToRgba(accent, alpha);
             document.querySelectorAll('.mock-file-label, .mock-tab-item, .mock-icon').forEach(el => { el.style.borderRadius = document.getElementById('roundedCorners').checked ? '5px' : '0'; });
@@ -1194,12 +1243,12 @@ class ThemeCustomizerPanel {
             document.querySelector('.mock-tab-item').style.borderTopColor = accent;
 
             const deg = document.getElementById('gradientAngle').value;
-            const intensity = document.getElementById('gradientIntensity').value / 100;
+            const intensity = document.getElementById(currentMode + 'Intensity').value / 100;
             const isLight = currentMode === 'light';
             
             const mock = document.getElementById('mockup');
             const stopsString = currentStops.map(s => {
-                const alpha = isLight ? intensity * 0.35 : intensity * 0.5;
+                const alpha = intensity * 0.65;
                 return \`\${hexToRgba(s.color, alpha)} \${s.offset}%\`;
             }).join(', ');
 
@@ -1240,6 +1289,10 @@ class ThemeCustomizerPanel {
                 accentColor: document.getElementById('accentColor').value,
                 borderColor: document.getElementById('borderColor').value,
                 borderWidth: Number(document.getElementById('borderWidth').value),
+                borderEnabled: document.getElementById('borderEnabled').checked,
+                workbenchEffects: document.getElementById('workbenchEffects').checked,
+                darkIntensity: Number(document.getElementById('darkIntensity').value) / 100,
+                lightIntensity: Number(document.getElementById('lightIntensity').value) / 100,
                 colorStops: currentStops,
                 leftColor: currentStops[0].color,
                 rightColor: currentStops[currentStops.length - 1].color,
@@ -1272,6 +1325,10 @@ class ThemeCustomizerPanel {
                 document.getElementById('accentColor').value = message.config.accentColor;
                 document.getElementById('borderColor').value = message.config.borderColor;
                 document.getElementById('borderWidth').value = message.config.borderWidth;
+                document.getElementById('borderEnabled').checked = message.config.borderEnabled;
+                document.getElementById('workbenchEffects').checked = message.config.workbenchEffects;
+                document.getElementById('darkIntensity').value = message.config.darkIntensity * 100;
+                document.getElementById('lightIntensity').value = message.config.lightIntensity * 100;
                 setThemeMode(message.config.themeMode || 'dark');
                 applyPresetStops(
                     message.config.colorStops || [{color: '#28A12F', offset: 0}, {color: '#A008B9', offset: 100}],
@@ -1302,6 +1359,7 @@ class ThemeCustomizerPanel {
 export function getCurrentConfig(): ThemeConfig {
     const nitroConfig = vscode.workspace.getConfiguration('gradientNitro');
     const editorConfig = vscode.workspace.getConfiguration('editor');
+    const savedFont = <T>(key: string, fallback: T): T => nitroConfig.inspect(key)?.globalValue !== undefined ? nitroConfig.get<T>(key, fallback) : fallback;
     const workbenchConfig = vscode.workspace.getConfiguration('workbench');
     const activeTheme = workbenchConfig.get<string>('colorTheme', 'Gradient Nitro Glass');
     const isLight = activeTheme.includes('Light');
@@ -1323,6 +1381,10 @@ export function getCurrentConfig(): ThemeConfig {
         accentColor: nitroConfig.get<string>('accentColor', '#00D2FF'),
         borderColor: nitroConfig.get<string>('borderColor', '#64748B'),
         borderWidth: nitroConfig.get<number>('borderWidth', 1),
+        borderEnabled: nitroConfig.get<boolean>('borderEnabled', true),
+        workbenchEffects: nitroConfig.get<boolean>('workbenchEffects', true),
+        darkIntensity: nitroConfig.get<number>('darkIntensity', 0.65),
+        lightIntensity: nitroConfig.get<number>('lightIntensity', 0.55),
         neonGlowIntensity: nitroConfig.get<number>('neonGlowIntensity', 0.18),
         syntaxOverrides: normalizeSyntaxOverrides(nitroConfig.get('syntaxOverrides', {})),
         fileColors: nitroConfig.get<boolean>('fileColors', true),
@@ -1336,11 +1398,11 @@ export function getCurrentConfig(): ThemeConfig {
         glassOpacity: nitroConfig.get<number>('glassOpacity', 0.70),
         gradientAngle: nitroConfig.get<number>('gradientAngle', 90),
         gradientIntensity: nitroConfig.get<number>('gradientIntensity', 0.28),
-        fontFamily: editorConfig.get<string>('fontFamily', "'JetBrains Mono', 'Fira Code', Consolas, monospace"),
-        fontSize: editorConfig.get<number>('fontSize', 14),
-        lineHeight: editorConfig.get<number>('lineHeight', 23),
-        fontLigatures: editorConfig.get<boolean>('fontLigatures', true),
-        fontWeight: editorConfig.get<string>('fontWeight', '400')
+        fontFamily: savedFont('fontFamily', editorConfig.get<string>('fontFamily', "'JetBrains Mono', 'Fira Code', Consolas, monospace")),
+        fontSize: savedFont('fontSize', editorConfig.get<number>('fontSize', 14)),
+        lineHeight: savedFont('lineHeight', editorConfig.get<number>('lineHeight', 23)),
+        fontLigatures: savedFont('fontLigatures', editorConfig.get<boolean>('fontLigatures', true)),
+        fontWeight: savedFont('fontWeight', editorConfig.get<string>('fontWeight', '400'))
     };
 }
 
@@ -1350,6 +1412,10 @@ export function getDefaultConfig(): ThemeConfig {
         accentColor: '#00D2FF',
         borderColor: '#64748B',
         borderWidth: 1,
+        borderEnabled: true,
+        workbenchEffects: true,
+        darkIntensity: 0.65,
+        lightIntensity: 0.55,
         neonGlowIntensity: 0.18,
         syntaxOverrides: {},
         fileColors: true,
@@ -1409,6 +1475,10 @@ export function normalizeConfig(input: Partial<ThemeConfig>): ThemeConfig {
     cfg.accentColor = hex(cfg.accentColor, defaults.accentColor);
     cfg.borderColor = hex(cfg.borderColor, defaults.borderColor);
     cfg.borderWidth = number(cfg.borderWidth, 1, 0, 4);
+    cfg.borderEnabled = cfg.borderEnabled !== false;
+    cfg.workbenchEffects = cfg.workbenchEffects !== false;
+    cfg.darkIntensity = number(cfg.darkIntensity, 0.65, 0, 1);
+    cfg.lightIntensity = number(cfg.lightIntensity, 0.55, 0, 1);
     cfg.neonGlowIntensity = number(cfg.neonGlowIntensity, 0.18, 0, 0.4);
     cfg.syntaxOverrides = normalizeSyntaxOverrides(cfg.syntaxOverrides);
     cfg.fileColors = cfg.fileColors !== false;
@@ -1430,16 +1500,13 @@ export function normalizeConfig(input: Partial<ThemeConfig>): ThemeConfig {
 export function buildColors(input: ThemeConfig): Record<string, string> {
     const cfg = normalizeConfig(input);
     const light = cfg.themeMode === 'light';
-    const base = light ? '#f8fafc' : '#11151d';
-    const strength = cfg.gradientIntensity * (light ? 0.35 : 0.45);
-    const left = blend(cfg.leftColor, base, strength);
-    const right = blend(cfg.rightColor, base, strength);
-    const middle = cfg.colorStops[Math.floor(cfg.colorStops.length / 2)].color;
-    const editor = blend(middle, base, strength * 0.35);
-    const foreground = light ? '#172033' : '#f1f5f9';
-    const muted = readable(light ? '#475569' : '#94a3b8', editor);
-    const accent = readable(cfg.accentColor, editor);
-    const border = cfg.borderWidth === 0 ? '#00000000' : cfg.borderColor;
+    const surfaces = gradientSurfaces(cfg).map(stop => stop.color);
+    const left = surfaces[0], right = surfaces[surfaces.length - 1];
+    const editor = surfaces[Math.floor(surfaces.length / 2)];
+    const foreground = readableAcross(light ? '#172033' : '#f1f5f9', surfaces);
+    const muted = readableAcross(light ? '#475569' : '#94a3b8', surfaces);
+    const accent = readableAcross(cfg.accentColor, surfaces);
+    const border = !cfg.borderEnabled || cfg.borderWidth === 0 ? '#00000000' : cfg.borderColor;
     const colors: Record<string, string> = {};
     for (const key of ['editor.background', 'editorGutter.background', 'editorGroup.emptyBackground', 'terminal.background', 'minimap.background', 'editorStickyScroll.background', 'editorHoverWidget.background', 'editorWidget.background', 'editorSuggestWidget.background', 'peekViewEditor.background', 'peekViewResult.background', 'input.background', 'dropdown.background', 'quickInput.background', 'menu.background', 'notifications.background']) colors[key] = editor;
     for (const key of ['sideBar.background', 'activityBar.background', 'statusBar.background', 'statusBar.noFolderBackground', 'titleBar.activeBackground', 'titleBar.inactiveBackground']) colors[key] = left;
@@ -1455,6 +1522,8 @@ export function buildColors(input: ThemeConfig): Record<string, string> {
     colors['statusBarItem.remoteBackground'] = cfg.accentColor;
     colors['statusBarItem.remoteForeground'] = onColor(cfg.accentColor);
     colors['tab.activeBackground'] = editor;
+    colors['activityBar.foreground'] = accent;
+    colors['activityBar.inactiveForeground'] = readableAcross(blend(cfg.accentColor, cfg.rightColor, 0.5), surfaces, 3);
     colors['tab.unfocusedActiveBackground'] = editor;
     const alpha = Math.round(cfg.neonGlowIntensity * (light ? 0.65 : 1) * 255).toString(16).padStart(2, '0');
     colors['widget.shadow'] = cfg.accentColor + alpha;
@@ -1482,7 +1551,9 @@ export async function applyCustomTheme(input: ThemeConfig) {
     const cfg = normalizeConfig(input);
     await cleanupLegacyRootCustomizations();
     const nitro = vscode.workspace.getConfiguration('gradientNitro');
-    for (const key of ['colorStops', 'roundedCorners', 'borderRadius', 'leftColor', 'rightColor', 'blurStrength', 'neonGlowSpread', 'glassOpacity', 'gradientAngle', 'gradientIntensity', 'accentColor', 'borderColor', 'borderWidth', 'neonGlowIntensity', 'syntaxOverrides', 'fileColors'] as const) await nitro.update(key, cfg[key], vscode.ConfigurationTarget.Global);
+    for (const key of fontKeys) await nitro.update(key, cfg[key], vscode.ConfigurationTarget.Global);
+    await typography.apply(cfg);
+    for (const key of ['colorStops', 'roundedCorners', 'borderRadius', 'leftColor', 'rightColor', 'blurStrength', 'neonGlowSpread', 'glassOpacity', 'gradientAngle', 'gradientIntensity', 'accentColor', 'borderColor', 'borderWidth', 'borderEnabled', 'workbenchEffects', 'darkIntensity', 'lightIntensity', 'neonGlowIntensity', 'syntaxOverrides', 'fileColors'] as const) await nitro.update(key, cfg[key], vscode.ConfigurationTarget.Global);
     const name = cfg.themeMode === 'light' ? 'Gradient Nitro Glass Light' : 'Gradient Nitro Glass';
     const workbench = vscode.workspace.getConfiguration('workbench');
     const colors = { ...(workbench.inspect<Record<string, any>>('colorCustomizations')?.globalValue || {}) };
@@ -1498,14 +1569,18 @@ export async function applyCustomTheme(input: ThemeConfig) {
     await extensionContext.globalState.update('ownedColors', owned);
     colors[scope] = { ...colors[scope], ...applied };
     await workbench.update('colorCustomizations', colors, vscode.ConfigurationTarget.Global);
-    await tokenSettings.apply(cfg.themeMode, cfg.syntaxOverrides, applied['editor.background']);
+    await tokenSettings.apply(cfg.themeMode, cfg.syntaxOverrides, gradientSurfaces(cfg).map(stop => stop.color));
     await workbench.update('colorTheme', name, vscode.ConfigurationTarget.Global);
     await nativeLayout.apply(cfg.roundedCorners, cfg.neonGlowIntensity > 0);
+    await syncEffects(cfg);
     fileColors.refresh();
     if (!nativeLayout.available && cfg.roundedCorners) vscode.window.showInformationMessage('Native rounded layout requires a VS Code version with workbench.experimental.modernUI. Your theme colors have been applied.');
 }
 
 export async function resetToDefaultSettings() {
+    await runtime.stop();
+    await typography.restore();
+    if (vscode.env?.appRoot) await installRuntime(vscode.env.appRoot, extensionContext.extensionUri.fsPath, path.join(extensionContext.globalStorageUri.fsPath, 'runtime-backups'), false);
     await nativeLayout.restore();
     await tokenSettings.restore();
     if (vscode.env?.appRoot) await removeLegacyWorkbenchStyles(vscode.env.appRoot, path.join(extensionContext.globalStorageUri.fsPath, 'legacy-backups'));
@@ -1517,6 +1592,7 @@ export async function resetToDefaultSettings() {
     for (const [scope, state] of Object.entries(owned)) {
         if (!colors[scope]) continue;
         colors[scope] = { ...colors[scope] };
+        delete colors[scope]['gradientNitro.runtime'];
         for (const [key, value] of Object.entries(state.applied)) {
             if (colors[scope][key] !== value) continue;
             if (state.before[key] == null) delete colors[scope][key];

@@ -9,7 +9,7 @@ process.env.APPDATA = fs.mkdtempSync(path.join(os.tmpdir(), 'nitro-test-'));
 const { harness } = require('./harness.cjs');
 const { contrast } = require('../out/colors.js');
 
-test('apply isolates colors, preserves root/workspace overrides and user typography', async () => {
+test('apply isolates colors and applies typography with recoverable ownership', async () => {
   const h = harness();
   h.global['workbench.colorCustomizations'] = { 'editor.foreground': '#abcdef', '[Other Theme]': { 'panel.background': '#123456' } };
   h.workspace['workbench.colorCustomizations'] = { 'editorCursor.foreground': '#fedcba' };
@@ -17,10 +17,25 @@ test('apply isolates colors, preserves root/workspace overrides and user typogra
   await h.extension.applyCustomTheme(h.extension.getDefaultConfig());
   assert.equal(h.global['workbench.colorCustomizations']['editor.foreground'], '#abcdef');
   assert.equal(h.global['workbench.colorCustomizations']['editorCursor.foreground'], undefined);
-  assert.equal(h.global['editor.fontFamily'], 'Consolas');
+  assert.equal(h.global['editor.fontFamily'], h.extension.getDefaultConfig().fontFamily);
   assert.ok(h.global['workbench.colorCustomizations']['[Gradient Nitro Glass]']);
   h.global['workbench.colorTheme'] = 'Default Dark Modern';
-  assert.ok(!h.writes.some(key => /^editor\.(font|lineHeight)/.test(key)));
+  await h.extension.deactivate();
+  assert.equal(h.global['editor.fontFamily'], 'Consolas');
+});
+
+test('repeated typography apply restores originals and preserves later edits and workspace overrides', async () => {
+  const h = harness();
+  h.global['editor.fontSize'] = 15;
+  h.workspace['editor.lineHeight'] = 30;
+  await h.extension.applyCustomTheme({ ...h.extension.getDefaultConfig(), fontSize: 18, fontFamily: 'Consolas' });
+  await h.extension.applyCustomTheme({ ...h.extension.getDefaultConfig(), fontSize: 20, fontFamily: 'Consolas' });
+  assert.equal(h.global['editor.fontSize'], 20);
+  assert.equal(h.global['editor.lineHeight'], undefined);
+  h.global['editor.fontFamily'] = 'User font';
+  await h.commands['gradientNitro.resetDefaults']();
+  assert.equal(h.global['editor.fontSize'], 15);
+  assert.equal(h.global['editor.fontFamily'], 'User font');
 });
 
 test('reset restores replaced scope values and preserves edits made after Apply', async () => {

@@ -1,139 +1,99 @@
-# Gradient Nitro Glass
+﻿# Gradient Nitro Glass
 
-**A colorful workspace with native rounded surfaces and language-aware syntax.**
+**An elegant glass and gradient theme for Visual Studio Code.**
 
-Gradient Nitro pairs dark and light palettes with clear token colors, distinct active states, and a customizer for making the workspace your own. Version **1.2.0** uses VS Code?s native Modern UI for rounded components?no new workbench CSS injection.
+A minimal workspace with colorful language-aware syntax, purple dark and light palettes, and a visual customizer. Version **1.3.1** brings gradients into the text editor, adjustable rounded corners, consistent panel borders and independent color intensity for both modes.
 
-[Install from Marketplace](https://marketplace.visualstudio.com/items?itemName=dadayan1234.gradient-nitro-glass) ? [Report an issue](https://github.com/dadayan1234/gradient-nitro/issues) ? [Changelog](CHANGELOG.md)
+[Marketplace](https://marketplace.visualstudio.com/items?itemName=dadayan1234.gradient-nitro-glass) | [Issues](https://github.com/dadayan1234/gradient-nitro/issues) | [Changelog](CHANGELOG.md)
 
 ## Preview
 
-### Dark
+![Purple glass gradient VS Code dark theme with colorful syntax and rounded panels](docs/images/workbench-dark.png)
 
-![Gradient Nitro dark theme with rounded editor, Explorer, tabs and terminal](docs/images/workbench-dark.png)
+![Elegant light gradient VS Code theme with readable code and colored navigation icons](docs/images/workbench-light.png)
 
-### Light
+![Colorful Markdown and environment file syntax](docs/images/file-formats.png)
 
-![Gradient Nitro light theme with colorful TypeScript and opaque editor surfaces](docs/images/workbench-light.png)
+Real screenshots from VS Code **1.136.1**, using the included examples and plum `#480f40` and blue `#00118f`, with green accent `#00852c`. The current preview uses Fira Code at 16 px, 13 px corners and 25% dark intensity. Reproduce it with [preview settings](docs/preview-theme.json).
 
-### Markdown and environment files
+## Install and customize
 
-![Markdown and environment syntax highlighting in a split VS Code editor](docs/images/file-formats.png)
+1. Install **Gradient Nitro Glass Theme**, or use **Extensions: Install from VSIX...** with `gradient-nitro-glass-1.3.1.vsix`.
+2. Select **Gradient Nitro Glass** or **Gradient Nitro Glass Light** from **Preferences: Color Theme**.
+3. Open the **Gradient Nitro** customizer from the Command Palette.
+4. Adjust the palette, accent, dark/light intensity, radius, borders and glow. Apply to VS Code.
+5. On first use of live effects, select **Reload Window** when prompted. Later adjustments apply live.
 
-These are screenshots from VS Code **1.136.1**, captured in an isolated development profile with the included example files. Window chrome, icons and native corner sizes can differ by VS Code version and platform.
+Requires desktop VS Code **1.129.0 or newer**. Live effects modify the installed workbench HTML to load a small helper and require write access to that installation. Original files are backed up in extension global storage. VS Code updates may require reapplying the helper and reloading. Native theme colors remain available with live workbench effects disabled.
 
-## Features
+## Controls
 
-- **Native rounded workspace.** Modern UI rounds editor groups, panels, tabs, Explorer selections, buttons and supported floating widgets using VS Code?s built-in radius scale.
-- **Colorful syntax.** Separate colors for variables, parameters, properties, keywords, functions, types, strings, numbers, constants and comments. Markdown adds headings, emphasis, links and inline code.
-- **Per-language palettes.** Start with shared colors, then override individual languages. TypeScript and JavaScript React variants share their parent language palette.
-- **Balanced shadows.** Gentle native elevation, with accent-tinted shadow colors where supported. Light mode uses a softer tint; zero intensity disables native shadows while Nitro is active.
-- **File label colors.** Explorer and tab labels distinguish code, markup, data, documentation and environment files. Existing source-control decorations may take precedence.
-- **Readable surfaces.** Opaque editor, minimap, tooltip and terminal backgrounds; token colors are adjusted toward at least 4.5:1 contrast against the configured editor background.
-- **Surprise me.** Generate a palette, review it in the customizer, and apply it when ready.
-
-## Installation
-
-Requires **VS Code 1.129.0 or newer**. Rounded layout is checked at runtime for native Modern UI support.
-
-1. Install **Gradient Nitro Glass Theme** from Extensions, or run **Extensions: Install from VSIX...** and select `gradient-nitro-glass-1.2.0.vsix`.
-2. Run **Preferences: Color Theme**.
-3. Choose **Gradient Nitro Glass** or **Gradient Nitro Glass Light**.
-4. Run **Gradient Nitro: Open Theme Customizer** to adjust your workspace.
-
-After upgrading from a release that injected CSS, reload the window once if prompted.
-
-## Make it yours
-
-### Workspace colors and layout
-
-1. Select dark or light mode.
-2. Choose a preset or edit the palette?s color points.
-3. Adjust **Palette Color Intensity**, the independent accent, and border color.
-4. Enable rounded corners to use native Modern UI. Set shadow intensity to a comfortable level.
-5. Click **Apply Real-time Changes**.
-
-Native changes apply without a reload. A workspace-level layout setting takes precedence over the customizer?s user-level setting.
-
-### Syntax colors
-
-![Language palette controls in the actual customizer webview](docs/images/syntax-studio.png)
-
-1. Open **Language & Syntax Colors**.
-2. Select **All languages** to edit shared token colors, or choose a specific language.
-3. Change a role such as **variable**, **keyword**, **function**, or **string**.
-4. Review the code sample, then click **Apply Real-time Changes**.
-5. Use **Reset this language palette** to discard that language?s draft overrides, then Apply to save.
-
-A very dark color chosen in dark mode, or a very light color in light mode, is adjusted to keep the text readable. The same saved override can therefore render differently in the two modes. The active language comes from VS Code?s language mode, not merely the file?s name.
-
-| Language / format | Coverage |
+| Control | Result |
 | --- | --- |
-| JavaScript, JSX, TypeScript, TSX | TextMate scopes and language-specific semantic token colors |
-| Python, Dart, Go, Rust, Java, C/C++, C#, PHP, Ruby, Swift, Kotlin | Token roles and language palettes; requires the appropriate grammar/language extension |
-| HTML / Vue, CSS / SCSS / Less | Tags, attributes, property names, values and embedded language scopes |
-| JSON / JSONC, YAML, TOML, INI, SQL | Keys, values, strings, constants, numbers and comments where grammars provide them |
-| Markdown | Headings, emphasis, links, lists, quotes and inline code; fenced code uses installed grammars |
-| `.env`, `.env.*`, `*.env` | Bundled grammar for keys, export, values, interpolation, numbers and comments |
-| Plain text / `.txt` | Bundled lightweight grammar for URLs, email addresses, numbers, headings and TODO-style markers |
+| Color stops and direction | Gradient across the workbench and text editor |
+| Dark / light intensity | Independent richness; higher values bring out more color |
+| Accent | Contrasting navigation icons, active states and buttons |
+| Show borders | Bordered or borderless panels and controls |
+| Border color / thickness | Consistent inset strokes without changing spacing |
+| Rounded corners / radius | Live radius for panels, tabs, inputs and widgets |
+| Glow intensity / spread | Live widget elevation; zero removes glow |
+| Glass blur / opacity | Translucent floating widgets with adjustable backdrop blur |
+| Editor typography | Apply font family, size, line height, weight and ligatures |
+| Surprise me | Generate a fresh palette to preview and apply |
 
-Semantic highlighting becomes more precise when the language extension provides semantic tokens. Nitro supplies colors, not a replacement language server. User file associations and explicit semantic-highlighting settings are respected. Bundled grammars remain registered while this extension is installed; their colors follow whichever theme is active.
+Keyboard focus indicators remain visible in borderless mode. Operating-system dialogs and third-party extension webviews have separate styling. Typography controls apply editor font family, size, line height, weight and ligatures. Reset or leaving Nitro restores previous preferences while preserving later manual edits. Workspace and language-specific overrides retain precedence. Fonts must be installed on your system.
 
-For settings-based configuration, edit `gradientNitro.syntaxOverrides` and Apply from the customizer:
+## Colorful syntax
+
+Panel headers use a darker surface. Active editor tabs have an accent-tinted fill, a visible underline and contrast-adjusted text, including the Modern UI tab fill.
+
+![Translucent code tooltip with the current glass opacity, blur and green glow](docs/images/tooltip-dark.png)
+
+Customize variables, parameters, keywords, functions, types, strings, numbers and comments by language. Select a language in the syntax studio, adjust its palette, then Apply. **Reset this language palette** clears draft overrides for that language.
+
+![Language-specific syntax palette customizer](docs/images/syntax-studio.png)
+
+Supported families include JavaScript/TypeScript, Python, Dart, Go, Rust, Java, C/C++, C#, PHP, Ruby, Swift, Kotlin, shell, PowerShell, SQL, HTML/Vue, CSS, JSON, YAML, TOML, Markdown, environment files and plain text. Language extensions supply semantic information where available. Bundled grammars color environment and plain-text tokens; Explorer decorations distinguish file families.
+
+Token colors are adjusted for readability across the gradient. Use **Developer: Inspect Editor Tokens and Scopes** to inspect the tokens provided by your language extension.
 
 ```json
 {
+  "gradientNitro.darkIntensity": 0.8,
+  "gradientNitro.lightIntensity": 0.75,
+  "gradientNitro.borderEnabled": true,
+  "gradientNitro.borderColor": "#b45cad",
+  "gradientNitro.borderWidth": 1,
+  "gradientNitro.borderRadius": 24,
   "gradientNitro.syntaxOverrides": {
-    "all": { "comment": "#96A6BB" },
-    "python": { "keyword": "#F49AC2", "variable": "#8BD5FF" },
-    "markdown": { "heading": "#C4AEFF", "link": "#68D9EF" }
+    "typescript": { "variable": "#bbaaff", "keyword": "#ff82c4" }
   }
 }
 ```
 
-### Native controls and preview effects
-
-| Control | Applied to VS Code |
-| --- | --- |
-| Palette intensity, accent, border color, syntax and file label colors | Yes |
-| Rounded corners | Enables native Modern UI; VS Code controls exact radii |
-| Shadow intensity | On/off for native shadows; tint where the widget supports theme shadow colors |
-| Custom corner radius and nonzero border thickness | Preview only; native geometry is controlled by VS Code |
-| Full gradients, direction, blur, glass opacity and font preview | Preview only |
-
-Some Modern UI widgets use fixed neutral shadows rather than `widget.shadow`; their tint and spread cannot be changed through the public color-theme API. Nitro keeps these native shadows instead of patching installation files. The effects preview demonstrates the custom layout controls and is not a pixel-identical screenshot of the workbench.
+After editing settings, open the customizer and Apply.
 
 ## Reset and recovery
 
-Run **Gradient Nitro: Reset to Default Settings** to return to **Default Dark Modern**, remove Nitro preferences and restore settings replaced by the customizer. **Gradient Nitro: Clean All Injected Settings & Styles** performs the same recovery.
+Run the **Gradient Nitro** reset or clean-settings command to restore **Dark Modern**, remove the helper and restore settings owned by Nitro. Later manual edits are preserved where ownership can be determined.
 
-Native layout preferences are tracked and restored when switching away from Nitro or during normal extension deactivation. Subsequent user edits are preserved. Color and syntax overrides are stored under Nitro-specific theme scopes, so they do not recolor another theme. Reset before uninstalling if you also want to remove those stored preferences.
+The helper receives styles from a local extension session. Switching themes, stopping or removing the extension disconnects that session and removes live styles. A heartbeat timeout clears styles after unexpected disconnection. An inert helper may remain after uninstall; use Reset before uninstalling to remove it from disk.
 
-Old CSS/HTML blocks are recognized by Nitro?s markers, backed up and removed during legacy recovery. A window reload clears styles already loaded in memory. Old releases did not record the fonts or colors they replaced, so those earlier values cannot be reconstructed.
+Legacy Nitro CSS blocks are backed up and removed during migration. Reload once to clear old styles already loaded in memory. Very old versions did not record every replaced preference, so those values cannot always be reconstructed.
 
-## Troubleshooting
-
-- **Corners are still square:** confirm Modern UI is available and check whether your workspace overrides `workbench.experimental.modernUI`. Enable the rounded option and Apply.
-- **Variables look similar:** verify the file?s language mode and install its language extension. Use **Developer: Inspect Editor Tokens and Scopes** to inspect the grammar/semantic token that supplies a color.
-- **An environment file stays plain:** use **Change Language Mode ? Environment**, or check your `files.associations` overrides.
-- **A file label uses a Git color:** source-control decorations can take priority. The file-label option does not replace your icon theme.
-- **Legacy styles remain:** run Clean, then **Developer: Reload Window**. Recovery reports errors if a protected installation cannot be updated.
+If effects are missing, enable live effects, Apply and reload once. Installation write errors appear in notifications. Workspace overrides take precedence over user settings. For environment files, check the language mode and `files.associations`.
 
 ## Development
 
 ```sh
-npm ci
+npm install
 npm test
 npm run themes:generate
 npm run package
 ```
 
-The bundled themes are generated from the same color and syntax engines used by the customizer. Update the package version with `npm version patch --no-git-tag-version` for a new maintenance release.
+`scripts/check-vscode.cjs` uses Playwright and a separate VS Code copy with an isolated profile to verify rendering and capture screenshots. It does not install the extension into your regular profile.
 
-The optional `scripts/check-vscode.cjs` integration check launches VS Code with an isolated profile, verifies native layout and reset behavior, and captures the README screenshots. It uses Playwright via `PLAYWRIGHT_MODULE`; `scripts/check-customizer.cjs` also checks narrow layouts and webview interactions. These tools do not install the development extension into your normal profile.
+Logo: a geometric glass monogram generated with the built-in imagegen tool. See [asset provenance](docs/logo-provenance.md).
 
-Commit screenshot assets with the release before publishing so repository and Marketplace image links resolve. Publishing is a separate step from packaging.
-
-## License
-
-[MIT](LICENSE.md) ? dadayan1234
+[MIT](LICENSE.md) | dadayan1234
