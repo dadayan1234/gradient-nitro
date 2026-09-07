@@ -8,6 +8,7 @@ const output = path.join(root, 'docs', 'images');
 const control = path.join(testRoot, 'capture.json');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 (async () => {
+  if (process.argv.includes('--guide')) return await require('./capture-guide.cjs');
   const profile = path.join(testRoot, 'profile-' + Date.now());
   fs.mkdirSync(path.join(profile, 'User'), { recursive: true });
   fs.mkdirSync(output, { recursive: true });

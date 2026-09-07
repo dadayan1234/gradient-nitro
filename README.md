@@ -6,6 +6,40 @@ A minimal workspace with colorful language-aware syntax, purple dark and light p
 
 [Marketplace](https://marketplace.visualstudio.com/items?itemName=dadayan1234.gradient-nitro-glass) | [Issues](https://github.com/dadayan1234/gradient-nitro/issues) | [Changelog](CHANGELOG.md)
 
+## Installation
+
+1. Open **Extensions** in VS Code with **Ctrl+Shift+X** on Windows/Linux or **Cmd+Shift+X** on macOS.
+2. Search for **Gradient Nitro Glass Theme** and select **Install**. To install a downloaded package instead, open the Command Palette, run **Extensions: Install from VSIX...**, and select `gradient-nitro-glass-1.3.1.vsix`.
+3. Open the **Command Palette** with **Ctrl+Shift+P** on Windows/Linux or **Cmd+Shift+P** on macOS. **F1** also opens it.
+4. Run **Preferences: Color Theme**, then select **Gradient Nitro Glass** or **Gradient Nitro Glass Light**.
+5. Open the built-in customizer below to make the theme your own. On first use of live workbench effects, select **Reload Window** when prompted; later adjustments apply live.
+
+## Open the built-in customizer
+
+**This theme includes a visual customizer.** Change the gradient, accent, fonts, borders, rounded corners, shadows, glass effects and language-specific syntax colors without editing JSON.
+
+### Steps 1–2: Find and open the customizer
+
+Press **Ctrl+Shift+P** (Windows/Linux), **Cmd+Shift+P** (macOS), or **F1** to open the Command Palette. Type **Gradient Nitro**, then click **Theme: Gradient Nitro: Open Theme Customizer**. You can also select it with the arrow keys and press **Enter**.
+
+![Real VS Code screenshot: yellow boxes 1 and 2 highlight the Command Palette search field and Open Theme Customizer command](docs/images/guide-open-customizer.png)
+
+### Step 3: Customize your theme
+
+The customizer opens as an editor tab. Adjust the gradient colors or select a preset. Scroll down for font settings, borders, rounded corners, Shadows & Glass, and language-specific syntax colors. Try **Surprise me** for a fresh palette.
+
+![Real VS Code screenshot: yellow box 3 highlights the gradient controls inside the visual customizer](docs/images/guide-customize.png)
+
+### Step 4: Apply your changes
+
+Scroll to the bottom and click **Apply Real-time Changes** to save and apply your choices. On first use of live workbench effects, select **Reload Window** when prompted. Later adjustments apply live.
+
+![Real VS Code screenshot: yellow box 4 highlights the Apply Real-time Changes button at the bottom of the customizer](docs/images/guide-apply.png)
+
+*These are screenshots of the actual VS Code interface with yellow highlight boxes and numbered instructions added for this guide.*
+
+Requires desktop VS Code **1.129.0 or newer**. Live effects modify the installed workbench HTML to load a small helper and require write access to that installation. Original files are backed up in extension global storage. VS Code updates may require reapplying the helper and reloading. Native theme colors remain available with live workbench effects disabled.
+
 ## Preview
 
 ![Purple glass gradient VS Code dark theme with colorful syntax and rounded panels](docs/images/workbench-dark.png)
@@ -15,16 +49,6 @@ A minimal workspace with colorful language-aware syntax, purple dark and light p
 ![Colorful Markdown and environment file syntax](docs/images/file-formats.png)
 
 Real screenshots from VS Code **1.136.1**, using the included examples and plum `#480f40` and blue `#00118f`, with green accent `#00852c`. The current preview uses Fira Code at 16 px, 13 px corners and 25% dark intensity. Reproduce it with [preview settings](docs/preview-theme.json).
-
-## Install and customize
-
-1. Install **Gradient Nitro Glass Theme**, or use **Extensions: Install from VSIX...** with `gradient-nitro-glass-1.3.1.vsix`.
-2. Select **Gradient Nitro Glass** or **Gradient Nitro Glass Light** from **Preferences: Color Theme**.
-3. Open the **Gradient Nitro** customizer from the Command Palette.
-4. Adjust the palette, accent, dark/light intensity, radius, borders and glow. Apply to VS Code.
-5. On first use of live effects, select **Reload Window** when prompted. Later adjustments apply live.
-
-Requires desktop VS Code **1.129.0 or newer**. Live effects modify the installed workbench HTML to load a small helper and require write access to that installation. Original files are backed up in extension global storage. VS Code updates may require reapplying the helper and reloading. Native theme colors remain available with live workbench effects disabled.
 
 ## Controls
 
