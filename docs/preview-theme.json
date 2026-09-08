@@ -1,37 +1,20 @@
 {
-  "editor.fontFamily": "'Fira Code', monospace",
-  "editor.fontSize": 16,
-  "editor.lineHeight": 22,
-  "editor.fontLigatures": true,
-  "editor.fontWeight": "400",
-  "gradientNitro.colorStops": [
-    {
-      "color": "#480f40",
-      "offset": 52
-    },
-    {
-      "color": "#00118f",
-      "offset": 100
-    }
-  ],
-  "gradientNitro.roundedCorners": true,
-  "gradientNitro.borderRadius": 13,
-  "gradientNitro.leftColor": "#480f40",
-  "gradientNitro.rightColor": "#00118f",
-  "gradientNitro.blurStrength": 20,
-  "gradientNitro.neonGlowSpread": 38,
-  "gradientNitro.glassOpacity": 0.86,
-  "gradientNitro.gradientAngle": 0,
-  "gradientNitro.gradientIntensity": 0.28,
-  "gradientNitro.accentColor": "#00852c",
-  "gradientNitro.borderColor": "#b13dff",
-  "gradientNitro.borderWidth": 1,
-  "gradientNitro.neonGlowIntensity": 0.22,
-  "gradientNitro.syntaxOverrides": {},
-  "gradientNitro.fileColors": true,
   "workbench.colorTheme": "Gradient Nitro Glass",
+  "gradientNitro.baseColor": "#120D24",
+  "gradientNitro.accentColor": "#22D3EE",
+  "gradientNitro.surfaceDepth": 1,
+  "gradientNitro.contrast": 1,
+  "gradientNitro.accentIntensity": 1,
+  "gradientNitro.inactiveFade": 0.5,
+  "gradientNitro.borderVisibility": 0.5,
+  "gradientNitro.activeTabIndicator": "top",
+  "gradientNitro.roundedCorners": false,
+  "gradientNitro.fileColors": false,
   "gradientNitro.borderEnabled": true,
-  "gradientNitro.workbenchEffects": true,
-  "gradientNitro.darkIntensity": 0.25,
-  "gradientNitro.lightIntensity": 0.55
+  "gradientNitro.borderWidth": 1,
+  "editor.fontFamily": "Consolas, monospace",
+  "editor.fontSize": 14,
+  "editor.lineHeight": 24,
+  "editor.fontWeight": "400",
+  "editor.fontLigatures": true
 }

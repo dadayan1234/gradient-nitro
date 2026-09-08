@@ -73,9 +73,10 @@ test('normalization rejects injected colors, bounds numbers and preserves zero',
 test('customizer script parses and uses SVG instead of emoji', () => {
   const h = harness(); h.commands['gradientNitro.openCustomizer']();
   const html = h.getPanel().webview.html;
-  new vm.Script(html.match(/<script>([\s\S]*?)<\/script>/)[1]);
+  new vm.Script(html.match(/<script nonce="[^"]+">([\s\S]*?)<\/script>/)[1]);
   assert.doesNotMatch(html, /[\u{1F300}-\u{1FAFF}]/u);
-  assert.match(html, /<svg/); assert.match(html, /Surprise me/);
+  assert.match(html, /<svg/); assert.match(html, /Theme Studio/);
+  assert.match(html, /Content-Security-Policy/);
 });
 
 test('legacy recovery removes only Nitro blocks, backs up and updates matching checksum', async () => {
@@ -97,12 +98,12 @@ test('legacy recovery removes only Nitro blocks, backs up and updates matching c
 
 test('native rounded layout restores user preference on deactivation and respects workspace settings', async () => {
   const h = harness();
-  await h.extension.applyCustomTheme(h.extension.getDefaultConfig());
+  await h.extension.applyCustomTheme({ ...h.extension.getDefaultConfig(), roundedCorners: true });
   assert.equal(h.global['workbench.experimental.modernUI'], true);
   await h.extension.deactivate();
   assert.equal(h.global['workbench.experimental.modernUI'], undefined);
   h.workspace['workbench.experimental.modernUI'] = false;
-  await h.extension.applyCustomTheme(h.extension.getDefaultConfig());
+  await h.extension.applyCustomTheme({ ...h.extension.getDefaultConfig(), roundedCorners: true });
   assert.equal(h.global['workbench.experimental.modernUI'], undefined);
 });
 

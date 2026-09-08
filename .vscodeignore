@@ -7,3 +7,14 @@ tsconfig.json
 scripts/**
 tests/**
 examples/**
+media/workbench-runtime.js
+out/runtime.*
+out/effects.*
+out/legacy.*
+
+# Historical effects screenshots are not current product previews.
+docs/images/**
+!docs/images/theme-studio*.png
+!docs/images/workbench-dark.png
+!docs/images/workbench-light.png
+!docs/images/workbench-modern.png

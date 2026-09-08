@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.4.0] - 2026-09-08
+
+- Added a full-canvas interactive workbench preview with floating, collapsible controls and a responsive bottom sheet.
+- Added a shared OKLCH Base + Accent palette, five harmonious presets, grouped Undo/Redo, live palette inspection and contrast diagnostics.
+- Refined tabs, Activity Bar, panels, tree selections and workbench surfaces; mapped VS Code 1.136.1 Modern UI color tokens as well.
+- Added explicit JSON Export and reversible workbench preview using supported configuration APIs. Save reuses existing settings ownership.
+- Preserved syntax definitions and separated syntax changes from workbench palette changes.
+- Retired installation-patching effects. Their runtime artifacts are excluded from packaging; no automatic installation repair is attempted.
+- Made native rounded Modern UI and file-family labels opt-in because they can override indicator and text hierarchy. Existing explicit preferences are retained.
+
 ## [1.3.2] - 2026-09-07
 
 - Refresh the Marketplace package with the latest customizer installation guide and annotated screenshots.

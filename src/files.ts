@@ -26,7 +26,7 @@ export class FileColors implements vscode.FileDecorationProvider, vscode.Disposa
     refresh(): void { this.changed.fire(undefined); }
     async provideFileDecoration(uri: vscode.Uri): Promise<vscode.FileDecoration | undefined> {
         const theme = vscode.workspace.getConfiguration('workbench').get<string>('colorTheme');
-        if (!['Gradient Nitro Glass', 'Gradient Nitro Glass Light'].includes(theme || '') || !vscode.workspace.getConfiguration('gradientNitro').get('fileColors', true)) return;
+        if (!['Gradient Nitro Glass', 'Gradient Nitro Glass Light'].includes(theme || '') || !vscode.workspace.getConfiguration('gradientNitro').get('fileColors', false)) return;
         const family = fileFamily(uri.path);
         if (!family) return;
         try { if ((await vscode.workspace.fs.stat(uri)).type & vscode.FileType.Directory) return; } catch { return; }

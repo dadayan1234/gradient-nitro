@@ -1,111 +1,87 @@
 ﻿# Gradient Nitro Glass
 
-**An elegant glass and gradient theme for Visual Studio Code.**
+A calm purple workspace with colorful syntax and an interactive Theme Studio. Refine the workbench from **Base + Accent**, with thin active indicators and a live canvas that responds immediately.
 
-A minimal workspace with colorful language-aware syntax, purple dark and light palettes, and a visual customizer. Version **1.3.2** brings gradients into the text editor, adjustable rounded corners, consistent panel borders and independent color intensity for both modes.
+**Version 1.4.0 · Tested on VS Code 1.136.1**
 
-[Marketplace](https://marketplace.visualstudio.com/items?itemName=dadayan1234.gradient-nitro-glass) | [Issues](https://github.com/dadayan1234/gradient-nitro/issues) | [Changelog](CHANGELOG.md)
+[Marketplace](https://marketplace.visualstudio.com/items?itemName=dadayan1234.gradient-nitro-glass) · [Issues](https://github.com/dadayan1234/gradient-nitro/issues) · [Changelog](CHANGELOG.md)
 
-## Installation
+## Install and try 1.4.0
 
-1. Open **Extensions** in VS Code with **Ctrl+Shift+X** on Windows/Linux or **Cmd+Shift+X** on macOS.
-2. Search for **Gradient Nitro Glass Theme** and select **Install**. To install a downloaded package instead, open the Command Palette, run **Extensions: Install from VSIX...**, and select `gradient-nitro-glass-1.3.2.vsix`.
-3. Open the **Command Palette** with **Ctrl+Shift+P** on Windows/Linux or **Cmd+Shift+P** on macOS. **F1** also opens it.
-4. Run **Preferences: Color Theme**, then select **Gradient Nitro Glass** or **Gradient Nitro Glass Light**.
-5. Open the built-in customizer below to make the theme your own. On first use of live workbench effects, select **Reload Window** when prompted; later adjustments apply live.
+1. Open the Command Palette and run **Extensions: Install from VSIX…**.
+2. Choose `gradient-nitro-glass-1.4.0.vsix` from the project folder. Reload VS Code if prompted.
+3. Run **Preferences: Color Theme** and select **Gradient Nitro Glass** or **Gradient Nitro Glass Light**.
+4. Run **Gradient Nitro: Open Theme Customizer**. Changes appear on the canvas immediately; click **Save Theme** to persist them.
 
-## Open the built-in customizer
+Upgrading retains your saved settings. To try the new default palette and indicator hierarchy, click **Reset** inside Theme Studio, then **Save Theme**. This also restores the default typography and clears draft syntax overrides, so skip Reset if you want to retain those customizations. You can instead choose Nitro Aqua and turn off native Modern UI/file-label colors individually.
 
-**This theme includes a visual customizer.** Change the gradient, accent, fonts, borders, rounded corners, shadows, glass effects and language-specific syntax colors without editing JSON.
+## Theme Studio
 
-### Steps 1–2: Find and open the customizer
+Run **Gradient Nitro: Open Theme Customizer** from the Command Palette. The preview fills the editor; controls float on the right and become a bottom sheet at narrow widths. Collapse them with the minus button or Escape, and reopen with **Theme**.
 
-Press **Ctrl+Shift+P** (Windows/Linux), **Cmd+Shift+P** (macOS), or **F1** to open the Command Palette. Type **Gradient Nitro**, then click **Theme: Gradient Nitro: Open Theme Customizer**. You can also select it with the arrow keys and press **Enter**.
+![Theme Studio: live workbench canvas with floating controls](docs/images/theme-studio.png)
 
-![Real VS Code screenshot: yellow boxes 1 and 2 highlight the Command Palette search field and Open Theme Customizer command](docs/images/guide-open-customizer.png)
+- Change **Base** and **Accent** using pickers or six-digit hex inputs.
+- Adjust surface depth, text contrast, accent intensity, inactive fade and border visibility.
+- Choose **Nitro Aqua**, **Mint**, **Electric Violet**, **Nitro Pink** or **Electric Blue**.
+- Click editor tabs, navigation icons, Explorer rows and panel tabs to inspect active states. Toggle **Simulate focused editor** to compare unfocused tabs.
+- Expand **Generated palette** and **Harmony check** for semantic swatches and contrast ratios.
+- Typography and the existing language-specific syntax controls remain available in their own section. Workbench colors never regenerate syntax colors.
 
-### Step 3: Customize your theme
+**Undo / Redo** keep up to 60 in-memory edits and group continuous input. **Reset** restores the canvas to theme defaults; it does not write settings.
 
-The customizer opens as an editor tab. Adjust the gradient colors or select a preset. Scroll down for font settings, borders, rounded corners, Shadows & Glass, and language-specific syntax colors. Try **Surprise me** for a fresh palette.
+## Preview gallery
 
-![Real VS Code screenshot: yellow box 3 highlights the gradient controls inside the visual customizer](docs/images/guide-customize.png)
+The dark preset uses BASE `#120D24` and ACCENT `#22D3EE`. Light mode uses BASE `#FAF7FF` and derives a readable aqua indicator. Syntax colors remain independent.
 
-### Step 4: Apply your changes
+![Light Theme Studio with the same live controls](docs/images/theme-studio-light.png)
 
-Scroll to the bottom and click **Apply Real-time Changes** to save and apply your choices. On first use of live workbench effects, select **Reload Window** when prompted. Later adjustments apply live.
+Actual VS Code 1.136.1 workbench, using the standard native layout:
 
-![Real VS Code screenshot: yellow box 4 highlights the Apply Real-time Changes button at the bottom of the customizer](docs/images/guide-apply.png)
+![Nitro Aqua dark workbench with a thin active-tab line and accented navigation](docs/images/workbench-dark.png)
 
-*These are screenshots of the actual VS Code interface with yellow highlight boxes and numbered instructions added for this guide.*
+![Light workbench with neutral surfaces and restrained aqua indicators](docs/images/workbench-light.png)
 
-Requires desktop VS Code **1.129.0 or newer**. Live effects modify the installed workbench HTML to load a small helper and require write access to that installation. Original files are backed up in extension global storage. VS Code updates may require reapplying the helper and reloading. Native theme colors remain available with live workbench effects disabled.
+The customizer becomes a bottom sheet at narrow editor widths:
 
-## Preview
+![Narrow Theme Studio with the canvas visible above its controls](docs/images/theme-studio-narrow.png)
 
-![Purple glass gradient VS Code dark theme with colorful syntax and rounded panels](docs/images/workbench-dark.png)
+[Open the screenshot guide](docs/preview-guide.md) for the actual Webview, medium-width and collapsed previews. [Reference settings](docs/preview-theme.json) reproduce the default dark palette without legacy effects.
 
-![Elegant light gradient VS Code theme with readable code and colored navigation icons](docs/images/workbench-light.png)
+## Save, export and temporary workbench preview
 
-![Colorful Markdown and environment file syntax](docs/images/file-formats.png)
-
-Real screenshots from VS Code **1.136.1**, using the included examples and plum `#480f40` and blue `#00118f`, with green accent `#00852c`. The current preview uses Fira Code at 16 px, 13 px corners and 25% dark intensity. Reproduce it with [preview settings](docs/preview-theme.json).
-
-## Controls
-
-| Control | Result |
+| Action | What it does |
 | --- | --- |
-| Color stops and direction | Gradient across the workbench and text editor |
-| Dark / light intensity | Independent richness; higher values bring out more color |
-| Accent | Contrasting navigation icons, active states and buttons |
-| Show borders | Bordered or borderless panels and controls |
-| Border color / thickness | Consistent inset strokes without changing spacing |
-| Rounded corners / radius | Live radius for panels, tabs, inputs and widgets |
-| Glow intensity / spread | Live widget elevation; zero removes glow |
-| Glass blur / opacity | Translucent floating widgets with adjustable backdrop blur |
-| Editor typography | Apply font family, size, line height, weight and ligatures |
-| Surprise me | Generate a fresh palette to preview and apply |
+| Change a control | Updates the local Webview canvas; no host message or filesystem write |
+| Save Theme | Persists Nitro settings and applies theme-scoped VS Code colors, reusing the existing ownership/recovery mechanism |
+| Export JSON | Opens a Save dialog and writes a standalone color-theme JSON; preserves syntax unless you explicitly edited its overrides |
+| Preview in Workbench | Temporarily applies colors to the currently selected theme using `workbench.colorCustomizations` |
+| Revert Preview | Restores the preceding color settings, preserving subsequent manual changes |
+| Reset | Resets the draft canvas; Undo can restore it |
 
-Keyboard focus indicators remain visible in borderless mode. Operating-system dialogs and third-party extension webviews have separate styling. Typography controls apply editor font family, size, line height, weight and ligatures. Reset or leaving Nitro restores previous preferences while preserving later manual edits. Workspace and language-specific overrides retain precedence. Fonts must be installed on your system.
+Temporary workbench preview restores on close, deactivation or the next extension activation after interruption. Recovery information is saved before configuration writes. Workspace settings and other theme scopes retain precedence. Changing the canvas after applying a workbench preview requires clicking **Preview in Workbench** again; dragging controls never writes settings.
 
-## Colorful syntax
+The separate **Gradient Nitro: Reset to Default Settings** and **Clean All Injected Settings & Styles** commands retain the existing settings recovery workflow and switch back to Default Dark Modern. They no longer alter VS Code installation files.
 
-Panel headers use a darker surface. Active editor tabs have an accent-tinted fill, a visible underline and contrast-adjusted text, including the Modern UI tab fill.
+## Native VS Code compatibility
 
-![Translucent code tooltip with the current glass opacity, blur and green glow](docs/images/tooltip-dark.png)
+Tested on desktop **VS Code 1.136.1**. The existing engine range remains `^1.129.0`; older builds ignore unrecognized newer color tokens.
 
-Customize variables, parameters, keywords, functions, types, strings, numbers and comments by language. Select a language in the syntax studio, adjust its palette, then Apply. **Reset this language palette** clears draft overrides for that language.
+The default uses the standard native layout: active tabs have a top accent line, active Activity Bar icons use accent, and panel titles have a matching underline. Hover and selection surfaces are subdued. The extension adds no CSS to VS Code's workbench.
 
-![Language-specific syntax palette customizer](docs/images/syntax-studio.png)
+The optional **Use native rounded Modern UI** control uses the supported `workbench.experimental.modernUI` setting. In 1.136.1, that layout can suppress editor, panel and Activity Bar line indicators. Registered `modernTab.*`, `modernEditorTab.*` and `modernActivityBarItem.*` colors keep its fills neutral and active icons accented, but a theme cannot restore hidden geometry. Standard layout is the default for the full indicator design. Existing explicit layout preferences remain available and workspace overrides win.
 
-Supported families include JavaScript/TypeScript, Python, Dart, Go, Rust, Java, C/C++, C#, PHP, Ruby, Swift, Kotlin, shell, PowerShell, SQL, HTML/Vue, CSS, JSON, YAML, TOML, Markdown, environment files and plain text. Language extensions supply semantic information where available. Bundled grammars color environment and plain-text tokens; Explorer decorations distinguish file families.
+**Side Line** is supported in the Webview only. Save, workbench preview and Export use Top Line for this choice because VS Code has no active-tab side-border token. Native indicator thickness is controlled by VS Code. Classic Activity Bar hover has no separate foreground token; it uses VS Code's native hover behavior.
 
-Token colors are adjusted for readability across the gradient. Use **Developer: Inspect Editor Tokens and Scopes** to inspect the tokens provided by your language extension.
+File-family label decorations are now opt-in because they override active/inactive label colors. Existing explicit choices are retained. Source-control decorations can also take precedence.
 
-```json
-{
-  "gradientNitro.darkIntensity": 0.8,
-  "gradientNitro.lightIntensity": 0.75,
-  "gradientNitro.borderEnabled": true,
-  "gradientNitro.borderColor": "#b45cad",
-  "gradientNitro.borderWidth": 1,
-  "gradientNitro.borderRadius": 24,
-  "gradientNitro.syntaxOverrides": {
-    "typescript": { "variable": "#bbaaff", "keyword": "#ff82c4" }
-  }
-}
-```
+Transitions, small control scale effects and backdrop blur exist only inside the customizer and respect reduced motion.
 
-After editing settings, open the customizer and Apply.
+## Migration from live effects
 
-## Reset and recovery
+The old installation-patching runtime is retired, never imported by the active extension, and excluded from packages. Its gradient/radius/blur settings remain deprecated for configuration compatibility. The purple identity, theme names, syntax palette, language grammars and explicit syntax overrides are retained.
 
-Run the **Gradient Nitro** reset or clean-settings command to restore **Dark Modern**, remove the helper and restore settings owned by Nitro. Later manual edits are preserved where ownership can be determined.
-
-The helper receives styles from a local extension session. Switching themes, stopping or removing the extension disconnects that session and removes live styles. A heartbeat timeout clears styles after unexpected disconnection. An inert helper may remain after uninstall; use Reset before uninstalling to remove it from disk.
-
-Legacy Nitro CSS blocks are backed up and removed during migration. Reload once to clear old styles already loaded in memory. Very old versions did not record every replaced preference, so those values cannot always be reconstructed.
-
-If effects are missing, enable live effects, Apply and reload once. Installation write errors appear in notifications. Workspace overrides take precedence over user settings. For environment files, check the language mode and `files.associations`.
+This version does not touch installation files, including any inert helper left by an older release. A previously modified installation is not repaired automatically; restoring it requires reinstalling VS Code. No custom-CSS extension is required.
 
 ## Development
 
@@ -113,11 +89,16 @@ If effects are missing, enable live effects, Apply and reload once. Installation
 npm install
 npm test
 npm run themes:generate
+npm run test:customizer
+node scripts/check-vscode.cjs
+npm run previews:refresh
 npm run package
 ```
 
-`scripts/check-vscode.cjs` uses Playwright and a separate VS Code copy with an isolated profile to verify rendering and capture screenshots. It does not install the extension into your regular profile.
+Use `npm.cmd` on Windows if PowerShell blocks `npm.ps1`. Browser checks use a local Playwright installation through `PLAYWRIGHT_MODULE` or the existing temporary test-tool directory; no production dependency is added. The VS Code check launches the installed application in an isolated test profile and compares installation hashes before/after. It never installs a helper.
 
-Logo: a geometric glass monogram generated with the built-in imagegen tool. See [asset provenance](docs/logo-provenance.md).
+`themes:generate` updates shipped workbench colors at build time and leaves `tokenColors`, `semanticTokenColors` and `semanticHighlighting` unchanged. Live controls never invoke this script. Screenshots from checks go to `.vscode-test/theme-studio/`.
 
-[MIT](LICENSE.md) | dadayan1234
+`previews:refresh` runs the browser and isolated VS Code checks, then copies their current screenshots into `docs/images/`. `package` compiles and regenerates shipped colors through the existing prepublish hook, producing `gradient-nitro-glass-1.4.0.vsix`.
+
+See [implementation report](docs/theme-studio.md) for the palette algorithm, token mapping, architecture and verification. Logo [provenance](docs/logo-provenance.md). [MIT](LICENSE.md).

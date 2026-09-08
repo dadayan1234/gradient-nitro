@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Gradient Nitro · Theme Studio</title><!--HEAD--></head>
+<body>
+<svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+<symbol id="files" viewBox="0 0 24 24"><path d="M9 3h11v14H9zM5 7H3v14h11v-2"/></symbol>
+<symbol id="search" viewBox="0 0 24 24"><circle cx="10" cy="10" r="7"/><path d="m15 15 6 6"/></symbol>
+<symbol id="branch" viewBox="0 0 24 24"><circle cx="6" cy="4" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="20" r="2"/><path d="M6 6v12m0-5c8 0 12-1 12-5"/></symbol>
+<symbol id="run" viewBox="0 0 24 24"><path d="m5 3 15 9-15 9z"/></symbol>
+<symbol id="extensions" viewBox="0 0 24 24"><path d="M3 3h7v7H3zm0 11h7v7H3zm11 0h7v7h-7zm2-13 7 3-3 7-7-3z"/></symbol>
+<symbol id="settings" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18M8 3v6m8 0v6m-9 0v6"/></symbol>
+<symbol id="chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+<symbol id="folder" viewBox="0 0 24 24"><path d="M3 6h7l2 3h9v11H3z"/></symbol>
+<symbol id="code" viewBox="0 0 24 24"><path d="m8 6-6 6 6 6m8-12 6 6-6 6M14 3l-4 18"/></symbol>
+</defs></svg>
+<main id="workbench" class="workbench" aria-label="Interactive VS Code theme preview">
+  <header class="titlebar"><svg class="icon brand"><use href="#code"/></svg><span class="menu-label">File　Edit　View</span><span class="navigation">←　→</span><div class="command-center"><svg class="icon"><use href="#search"/></svg> sesa-pilot</div><span class="window-controls" aria-hidden="true">−　□　×</span></header>
+  <nav class="activitybar" aria-label="Primary navigation preview">
+    <button data-activity="explorer" class="activity active" aria-label="Explorer" aria-pressed="true" title="Explorer"><svg><use href="#files"/></svg></button>
+    <button data-activity="search" class="activity" aria-label="Search" aria-pressed="false" title="Search"><svg><use href="#search"/></svg></button>
+    <button data-activity="source" class="activity" aria-label="Source Control" aria-pressed="false" title="Source Control"><svg><use href="#branch"/></svg></button>
+    <button data-activity="run" class="activity" aria-label="Run" aria-pressed="false" title="Run"><svg><use href="#run"/></svg></button>
+    <button data-activity="extensions" class="activity" aria-label="Extensions" aria-pressed="false" title="Extensions"><svg><use href="#extensions"/></svg></button>
+    <span class="activity-spacer"></span><button class="activity" id="openControls" aria-label="Show theme controls" title="Theme controls"><svg><use href="#settings"/></svg></button>
+  </nav>
+  <aside class="sidebar" aria-label="Explorer preview"><div class="sidebar-title"><span id="sidebarTitle">EXPLORER</span><span>···</span></div><div class="project-title">⌄　SESA-PILOT</div><div id="projectTree" role="group" aria-label="Project files"></div><div class="sidebar-foot">⌃　OUTLINE<br><br>⌃　TIMELINE</div></aside>
+  <section class="editor-group" id="editorGroup" aria-label="Editor preview">
+    <div class="tabs" role="tablist" aria-label="Editor tabs">
+      <button class="editor-tab active" data-tab="main.py" role="tab" aria-selected="true"><span class="file-icon">py</span> main.py <span class="tab-close">×</span></button>
+      <button class="editor-tab" data-tab="config.py" role="tab" aria-selected="false"><span class="file-icon">py</span> config.py <span class="modified" aria-label="Modified">●</span></button>
+      <button class="editor-tab" data-tab="README.md" role="tab" aria-selected="false"><span class="file-icon">M</span> README.md <span class="tab-close">×</span></button>
+    </div>
+    <div class="breadcrumbs" id="breadcrumbs">app　›　views　›　main.py</div>
+    <div class="editor" id="editor" tabindex="0" aria-label="Sample code, click to focus"><div class="code-scroll"><div id="codeLines" class="code-lines"></div></div><div class="minimap" id="minimap" aria-hidden="true"></div><span class="canvas-caption">GRADIENT NITRO <span>/</span> LIVE CANVAS</span></div>
+  </section>
+  <section class="panel" aria-label="Bottom panel preview"><nav class="panel-tabs" role="tablist" aria-label="Panel navigation"><button data-panel="Problems" class="panel-tab" role="tab" aria-selected="false">Problems <span class="count">0</span></button><button data-panel="Output" class="panel-tab" role="tab" aria-selected="false">Output</button><button data-panel="Debug Console" class="panel-tab" role="tab" aria-selected="false">Debug Console</button><button data-panel="Ports" class="panel-tab" role="tab" aria-selected="false">Ports</button><button data-panel="Terminal" class="panel-tab active" role="tab" aria-selected="true">Terminal</button></nav><div id="panelContent" class="terminal" tabindex="0"></div></section>
+  <footer class="statusbar"><span><svg class="icon"><use href="#branch"/></svg> main*　 ⊗ 0　△ 0</span><span>Ln 18, Col 1　 Spaces: 4　 UTF-8　 LF　 <span id="languageStatus">Python</span>　 ✓</span></footer>
+</main>
+<button id="expandControls" class="theme-launcher" aria-expanded="false" aria-controls="controls" hidden><svg class="icon"><use href="#settings"/></svg> Theme</button>
+<aside id="controls" class="controls" aria-label="Theme controls">
+  <header class="controls-header"><div><div class="eyebrow">GRADIENT NITRO</div><h1>Theme Studio<span class="live-dot" title="Live preview"></span></h1></div><button id="collapseControls" class="icon-button" aria-label="Collapse theme controls" aria-expanded="true" aria-controls="controls">−</button></header>
+  <div class="controls-scroll">
+    <p class="intro">Shape your workspace.<br><span>Every adjustment, live on the canvas.</span></p>
+    <div class="mode-switch" role="group" aria-label="Theme mode"><button data-mode="dark" id="btnModeDark">Dark</button><button data-mode="light" id="btnModeLight">Light</button></div>
+    <section class="control-section"><div class="section-label">FOUNDATION <span>01</span></div>
+      <div class="color-row"><label for="baseHex">Base <small>Surface family</small></label><input id="baseColor" type="color" aria-label="Base color picker"><input id="baseHex" class="hex-input" maxlength="7" spellcheck="false" aria-label="Base hex color"></div>
+      <div class="color-row"><label for="accentHex">Accent <small>Active signal</small></label><input id="accentColor" type="color" aria-label="Accent color picker"><input id="accentHex" class="hex-input" maxlength="7" spellcheck="false" aria-label="Accent hex color"></div>
+      <p id="colorError" class="field-error" role="status" hidden>Use a six-digit hex color, such as #120D24.</p>
+    </section>
+    <section class="control-section"><div class="section-label">HARMONY <span>02</span></div>
+      <label class="range-label" for="surfaceDepth">Surface depth <output id="surfaceDepthValue"></output></label><input id="surfaceDepth" data-number type="range" min="0" max="2" step="0.02">
+      <label class="range-label" for="contrast">Text contrast <output id="contrastValue"></output></label><input id="contrast" data-number type="range" min="0.7" max="1.3" step="0.01">
+      <label class="range-label" for="accentIntensity">Accent intensity <output id="accentIntensityValue"></output></label><input id="accentIntensity" data-number type="range" min="0.2" max="1.5" step="0.01">
+      <label class="range-label" for="inactiveFade">Inactive fade <output id="inactiveFadeValue"></output></label><input id="inactiveFade" data-number type="range" min="0" max="1" step="0.01">
+      <label class="range-label" for="borderVisibility">Border visibility <output id="borderVisibilityValue"></output></label><input id="borderVisibility" data-number type="range" min="0" max="1" step="0.01">
+      <label class="select-label" for="activeTabIndicator">Tab indicator<select id="activeTabIndicator"><option value="top">Top Line</option><option value="bottom">Bottom Line</option><option value="side">Side Line</option></select></label>
+      <p id="indicatorNote" class="small-note" hidden>Side Line is canvas-only. Save and Export use Top Line in VS Code.</p>
+      <label class="check-label"><input id="editorFocused" type="checkbox" checked> Simulate focused editor</label>
+    </section>
+    <section class="control-section"><div class="section-label">PRESETS <span>03</span></div><div id="presets" class="presets"></div></section>
+    <details class="control-section" id="paletteDetails"><summary>Generated palette <span>17 roles</span></summary><div id="paletteInspector" class="palette-grid"></div></details>
+    <details class="control-section" open><summary>Harmony check</summary><div id="diagnostics" class="diagnostics"></div></details>
+    <details class="control-section"><summary>Typography & syntax</summary><label class="check-label"><input id="fileColors" type="checkbox"> Color file labels by language</label><p class="small-note">Optional file decorations can override active and inactive label colors in VS Code.</p><label class="check-label"><input id="roundedCorners" type="checkbox"> Use native rounded Modern UI</label><p class="small-note">VS Code 1.136.1 Modern UI can hide line indicators. The canvas shows the standard layout.</p><p class="small-note">Your existing syntax palette is separate from the workbench colors.</p><label class="stack-label" for="fontFamily">Font family<input id="fontFamily" type="text"></label><label class="select-label" for="fontSize">Font size<input id="fontSize" type="number" min="8" max="40"></label><label class="select-label" for="lineHeight">Line height<input id="lineHeight" type="number" min="0" max="60"></label><label class="check-label"><input id="fontLigatures" type="checkbox"> Font ligatures</label><label class="select-label" for="fontWeight">Weight<select id="fontWeight"><option>300</option><option>400</option><option>500</option><option>600</option><option>700</option><option>normal</option><option>bold</option></select></label><label class="select-label" for="syntaxLanguage">Syntax sample<select id="syntaxLanguage"></select></label><div id="syntaxControls" class="syntax-controls"></div><button id="resetSyntax" class="quiet-button">Reset this syntax override</button></details>
+  </div>
+  <footer class="controls-footer"><div class="history-actions"><button id="undo" title="Undo palette edit">↶ Undo</button><button id="redo" title="Redo palette edit">↷ Redo</button><button id="reset" title="Reset canvas to theme defaults">Reset</button></div><div class="save-actions"><button id="save" class="primary-button" data-host-action>Save Theme</button><button id="export" data-host-action>Export JSON</button></div><div class="preview-actions"><button id="previewWorkbench" data-host-action>Preview in Workbench</button><button id="revertPreview" data-host-action disabled>Revert Preview</button></div><p id="actionStatus" class="action-status" role="status" aria-live="polite">Canvas changes are temporary until you save.</p></footer>
+</aside>
+<!--SCRIPT-->
+</body></html>
