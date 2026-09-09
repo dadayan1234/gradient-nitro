@@ -1,4 +1,6 @@
-# Gradient Nitro Glass!
+[![CLA assistant](https://cla-assistant.io/readme/badge/dadayan1234/gradient-nitro)](https://cla-assistant.io/dadayan1234/gradient-nitro)
+
+# Gradient Nitro Glass
 
 **Version 1.5.3 · Tested on desktop VS Code 1.136.1**
 
