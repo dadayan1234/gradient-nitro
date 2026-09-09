@@ -68,9 +68,13 @@ with zipfile.ZipFile(artifact) as archive:
     assert b'IsPreReleaseVersion' not in archive.read('extension.vsixmanifest')
     readme = archive.read('extension/README.md').decode('utf-8')
     urls = re.findall(r'!\[[^\]]*\]\(([^)]+)\)', readme)
-    assert urls and all(url.startswith('https://raw.githubusercontent.com/dadayan1234/gradient-nitro/main/') for url in urls)
-    assert any(url.endswith(gif.name) for url in urls)
-    for url in urls:
+    raw_prefix = 'https://raw.githubusercontent.com/dadayan1234/gradient-nitro/main/'
+    repo_urls = [url for url in urls if url.startswith(raw_prefix)]
+    external_urls = [url for url in urls if not url.startswith(raw_prefix)]
+    assert repo_urls, 'Expected repository media URLs'
+    assert all(url.startswith('https://') for url in external_urls), 'External badges must use HTTPS'
+    assert any(url.endswith(gif.name) for url in repo_urls)
+    for url in repo_urls:
         relative = url.split('/main/', 1)[1]
         assert archive.read('extension/' + relative) == (root / relative).read_bytes()
     for directory in ['out', 'media']:
@@ -84,7 +88,7 @@ print(f'LOCAL PASS: {artifact.name}; GIF {width}x{height}, {frames} frames, {dur
 print('SHA256:', digest)
 if args.remote:
     failures = []
-    for url in urls:
+    for url in repo_urls:
         relative = url.split('/main/', 1)[1]
         try:
             request = urllib.request.Request(url, headers={'User-Agent': 'Gradient-Nitro-release-check'})

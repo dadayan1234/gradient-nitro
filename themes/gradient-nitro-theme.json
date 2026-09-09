@@ -238,7 +238,21 @@
     "menu.selectionForeground": "#F2F1FE",
     "menu.selectionBackground": "#263B54",
     "quickInputList.focusBackground": "#263B54",
-    "quickInputList.focusForeground": "#F2F1FE"
+    "quickInputList.focusForeground": "#F2F1FE",
+    "chat.requestBackground": "#201B36",
+    "inlineChatInput.background": "#201B36",
+    "chat.requestBorder": "#3B4058",
+    "inlineChat.border": "#3B4058",
+    "inlineChatInput.border": "#3B4058",
+    "interactive.inactiveCodeBorder": "#3B4058",
+    "inlineChatInput.focusBorder": "#22D3EE",
+    "interactive.activeCodeBorder": "#22D3EE",
+    "chat.avatarBackground": "#22D3EE",
+    "chat.avatarForeground": "#000000",
+    "diffEditor.insertedTextBackground": "#28A12F28",
+    "diffEditor.removedTextBackground": "#EF444428",
+    "diffEditor.insertedLineBackground": "#28A12F14",
+    "diffEditor.removedLineBackground": "#EF444414"
   },
   "tokenColors": [
     {

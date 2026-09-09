@@ -11,7 +11,7 @@
     "url": "https://github.com/dadayan1234/gradient-nitro.git"
   },
   "engines": {
-    "vscode": "^1.129.0"
+    "vscode": "^1.80.0"
   },
   "categories": [
     "Themes"
@@ -28,7 +28,9 @@
     "colorful",
     "syntax highlighting",
     "rounded",
-    "customizer"
+    "customizer",
+    "antigravity",
+    "google-antigravity"
   ],
   "activationEvents": [
     "onStartupFinished"

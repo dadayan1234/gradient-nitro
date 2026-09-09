@@ -291,6 +291,15 @@ export function workbenchColors(input: Partial<PaletteConfig> & { borderEnabled?
     t['editor.lineHighlightBackground'] = p['base-5']+'60';
     t['editor.lineHighlightBorder'] = transparent;
     assign('interaction-foreground', ['list.activeSelectionForeground','list.inactiveSelectionForeground','list.focusForeground','list.hoverForeground','menu.selectionForeground','quickInputList.focusForeground','editorSuggestWidget.selectedForeground','tab.hoverForeground','tab.unfocusedHoverForeground','modernTab.hoverForeground','modernTab.activeForeground','modernEditorTab.hoverForeground','button.secondaryForeground']);
+    // Antigravity IDE & AI assistant surfaces (Sidebar Chat, Inline Command, Agent Canvas, Diff Overlays)
+    assign('base-5', ['chat.requestBackground', 'inlineChatInput.background']);
+    assign('border-subtle', ['chat.requestBorder', 'inlineChat.border', 'inlineChatInput.border', 'interactive.inactiveCodeBorder']);
+    assign('accent', ['inlineChatInput.focusBorder', 'interactive.activeCodeBorder', 'chat.avatarBackground']);
+    t['chat.avatarForeground'] = contrastRatio('#000000', p.accent) > contrastRatio('#FFFFFF', p.accent) ? '#000000' : '#FFFFFF';
+    t['diffEditor.insertedTextBackground'] = '#28A12F28';
+    t['diffEditor.removedTextBackground'] = '#EF444428';
+    t['diffEditor.insertedLineBackground'] = '#28A12F14';
+    t['diffEditor.removedLineBackground'] = '#EF444414';
     if (input.borderEnabled === false || input.borderWidth === 0) {
         for (const key of ['surface.border','editor.border','modernActivityBar.border','notificationToast.border','keybindingLabel.border','sideBarSectionHeader.border','pickerGroup.border']) t[key] = transparent;
         for (const key of Object.keys(t)) if (/^(sideBar|activityBar|panel|statusBar|titleBar|editorGroup|editorGroupHeader|widget|editorWidget|editorHoverWidget|editorSuggestWidget|input|dropdown|menu|notifications|peekView)\.(border|tabsBorder)$/.test(key)) t[key] = transparent;
