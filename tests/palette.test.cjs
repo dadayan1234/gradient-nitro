@@ -8,15 +8,16 @@ test('OKLCH round trips preserve seeds and gamut mapping remains finite', () => 
   for (const color of ['#120D24','#22D3EE','#000000','#FFFFFF','#FF0000','#0000FF','#00FF00']) assert.equal(engine.fromLch(engine.toLch(color)),color);
   for (let h = -3; h <= 3; h += .2) assert.match(engine.fromLch([.7,.8,h]),/^#[A-F\d]{6}$/);
 });
-test('presets maintain surface and foreground hierarchy with subtle selection', () => {
+test('presets maintain surface hierarchy with distinct readable selection', () => {
   for (const preset of engine.presets) {
     const cfg = {...engine.paletteDefaults,...preset}, p = engine.derivePalette(cfg), t = engine.workbenchColors(cfg);
     assert.equal(t['tab.activeBackground'],t['editorGroupHeader.tabsBackground']);
     assert.equal(t['tab.activeBackground'],t['tab.inactiveBackground']);
     assert.equal(t['tab.activeBorderTop'],p.accent); assert.equal(t['tab.activeBorder'],'#00000000');
-    assert.equal(t['activityBar.foreground'],p.accent); assert.equal(t['activityBar.activeBackground'],'#00000000');
+    assert.equal(t['activityBar.foreground'],p.accent); assert.equal(t['activityBar.activeBackground'],p.selection);
     assert.equal(t['activityBar.inactiveForeground'],p['fg-muted']); assert.ok(engine.toLch(p['fg-muted'])[1] < .025);
-    assert.ok(engine.contrastRatio(p.selection,p['base-2']) < 1.3);
+    assert.ok(engine.contrastRatio(p.selection,p['base-2']) > 1.3);
+    assert.ok(engine.contrastRatio(p['interaction-foreground'],p.selection) >= 4.5);
     for (let i=0;i<=5;i++) assert.ok(Math.abs(engine.toLch(p['base-'+i])[2]-engine.toLch(preset.baseColor)[2]) < .07);
     assert.equal(engine.diagnostics(p).some(x=>x.warning),false);
   }
@@ -73,7 +74,8 @@ test('failed preview write retains a recovery journal for retry', async () => {
   await assert.rejects(new WorkbenchPreview(state).apply({'editor.background':'#120D24'}));assert.ok(h.state.workbenchPreview);
   h.vscode.workspace.getConfiguration=original;await new WorkbenchPreview(state).revert();assert.equal(h.state.workbenchPreview,undefined);
 });
-test('active extension never imports installation patches or runtime injection', () => {
+test('runtime installation remains isolated behind explicit opt-in', () => {
   assert.doesNotMatch(fs.readFileSync('src/extension.ts','utf8'),/installRuntime|RuntimeSession|removeLegacyWorkbenchStyles|buildEffects|custom\.css/);
-  assert.equal(harness().extension.normalizeConfig({workbenchEffects:true}).workbenchEffects,false);
+  assert.equal(harness().extension.normalizeConfig({workbenchEffects:true}).workbenchEffects,true);
+  assert.equal(harness().extension.normalizeConfig({}).workbenchEffects,false);
 });

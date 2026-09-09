@@ -51,9 +51,14 @@ export async function cleanupLegacyRootCustomizations() {
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { PaletteConfig, paletteDefaults, normalizePalette, workbenchColors } from './palette';
+import { paletteDefaults, normalizePalette, workbenchColors } from './palette';
+import { ThemeConfig, ColorStop, getDefaultConfig, normalizeConfig } from './config';
+export { ThemeConfig, ColorStop, getDefaultConfig, normalizeConfig } from './config';
 import { customizerHtml } from './customizer';
+import { exportPreset, importPreset } from './preset';
+import { NitroActivityView } from './activityView';
 import { WorkbenchPreview } from './workbenchPreview';
+import { syncWorkbenchRuntime, revertWorkbenchRuntime, suspendWorkbenchRuntime } from './workbenchRuntime';
 
 
 import { NativeLayout } from './layout';
@@ -68,6 +73,7 @@ let typography: Typography;
 let tokenSettings: TokenSettings;
 let fileColors: FileColors;
 let workbenchPreview: WorkbenchPreview;
+let activityView: NitroActivityView;
 let pending: Promise<unknown> = Promise.resolve();
 function enqueue(action: () => Promise<void>): Promise<void> {
     const next = pending.then(action);
@@ -81,13 +87,21 @@ export function activate(context: vscode.ExtensionContext) {
     tokenSettings = new TokenSettings(context.globalState);
     fileColors = new FileColors();
     workbenchPreview = new WorkbenchPreview(context.globalState);
+    activityView = new NitroActivityView(getCurrentConfig, () => !!context.globalState.get<{active:boolean}>('workbenchRuntimeJournal')?.active);
     context.subscriptions.push(
+        activityView,
+        vscode.window.registerTreeDataProvider('gradientNitro.studioView', activityView),
+        vscode.commands.registerCommand('gradientNitro.applySaved', () => enqueue(() => applyCustomTheme(getCurrentConfig()))),
+        vscode.commands.registerCommand('gradientNitro.saveAndApply', () => ThemeCustomizerPanel.saveAndApply()),
+        vscode.commands.registerCommand('gradientNitro.previewSaved', () => enqueue(() => applyWorkbenchPreview(getCurrentConfig()))),
+        vscode.commands.registerCommand('gradientNitro.revertPreview', () => enqueue(revertWorkbenchPreview)),
         fileColors,
         vscode.window.registerFileDecorationProvider(fileColors),
         vscode.commands.registerCommand('gradientNitro.openCustomizer', () => ThemeCustomizerPanel.render(context.extensionUri)),
         vscode.commands.registerCommand('gradientNitro.resetDefaults', () => enqueue(resetToDefaultSettings)),
         vscode.commands.registerCommand('gradientNitro.cleanSettings', () => enqueue(resetToDefaultSettings)),
         vscode.workspace.onDidChangeConfiguration(event => {
+            if (event.affectsConfiguration('gradientNitro')) activityView.refresh();
             if (event.affectsConfiguration('workbench.colorTheme')) void enqueue(syncNativeLayout).catch(() => {});
             if (event.affectsConfiguration('workbench.colorTheme') || event.affectsConfiguration('gradientNitro.fileColors')) fileColors.refresh();
         })
@@ -98,48 +112,33 @@ async function syncNativeLayout() {
     const theme = vscode.workspace.getConfiguration('workbench').get<string>('colorTheme');
     if (theme === 'Gradient Nitro Glass' || theme === 'Gradient Nitro Glass Light') {
         const cfg = getCurrentConfig();
-        await nativeLayout.apply(cfg.roundedCorners, cfg.neonGlowIntensity > 0);
+        await nativeLayout.apply(cfg.nativeModernUI, cfg.neonGlowIntensity > 0);
         if (vscode.workspace.getConfiguration('gradientNitro').inspect('fontFamily')?.globalValue !== undefined) await typography.apply(normalizeConfig(cfg));
-
-    } else { await typography.restore(); await nativeLayout.restore(); }
+        if (cfg.workbenchEffects) await syncWorkbenchRuntime(extensionContext, normalizeConfig(cfg));
+        else await revertWorkbenchRuntime(extensionContext);
+    } else {
+        await revertWorkbenchRuntime(extensionContext);
+        await typography.restore();
+        await nativeLayout.restore();
+    }
 }
-export async function deactivate() { await pending; await workbenchPreview?.revert(); await typography?.restore(); await nativeLayout?.restore(); }
-
-export interface ColorStop {
-    color: string;
-    offset: number; // 0 to 100
-}
-
-export interface ThemeConfig extends PaletteConfig {
-    themeMode: 'dark' | 'light';
-    accentColor: string;
-    borderColor: string;
-    borderWidth: number;
-    borderEnabled: boolean;
-    workbenchEffects: boolean;
-    darkIntensity: number;
-    lightIntensity: number;
-    neonGlowIntensity: number;
-    syntaxOverrides: LanguageOverrides;
-    fileColors: boolean;
-    colorStops: ColorStop[];
-    leftColor: string;
-    rightColor: string;
-    roundedCorners: boolean;
-    borderRadius: number;
-    blurStrength: number;
-    neonGlowSpread: number;
-    glassOpacity: number;
-    gradientAngle: number;
-    gradientIntensity: number;
-    fontFamily: string;
-    fontSize: number;
-    lineHeight: number;
-    fontLigatures: boolean;
-    fontWeight: string;
+export async function deactivate() {
+    await pending;
+    if (getCurrentConfig().workbenchEffects) await suspendWorkbenchRuntime();
+    else await revertWorkbenchRuntime(extensionContext);
+    await workbenchPreview?.revert();
+    await typography?.restore();
+    await nativeLayout?.restore();
 }
 
 class ThemeCustomizerPanel {
+    public static async saveAndApply() {
+        if (this.currentPanel) {
+            await this.currentPanel._panel.webview.postMessage({ command: 'saveAndApply' });
+        } else {
+            await enqueue(() => applyCustomTheme(getCurrentConfig()));
+        }
+    }
     public static currentPanel: ThemeCustomizerPanel | undefined;
     private readonly _panel: vscode.WebviewPanel;
     private _disposables: vscode.Disposable[] = [];
@@ -170,7 +169,7 @@ class ThemeCustomizerPanel {
 
     public dispose() {
         ThemeCustomizerPanel.currentPanel = undefined;
-        void enqueue(() => workbenchPreview.revert()).catch(() => {});
+        void enqueue(revertWorkbenchPreview).catch(() => {});
         this._panel.dispose();
         while (this._disposables.length) {
             const x = this._disposables.pop();
@@ -194,16 +193,33 @@ class ThemeCustomizerPanel {
                     case 'previewWorkbench':
                     case 'revertPreview':
                         try {
-                            await enqueue(() => message.command === 'previewWorkbench' ? workbenchPreview.apply(buildColors(message.config)) : workbenchPreview.revert());
+                            await enqueue(() => message.command === 'previewWorkbench' ? applyWorkbenchPreview(message.config) : revertWorkbenchPreview());
                             webview.postMessage({ command: 'actionResult', ok: true, text: message.command === 'previewWorkbench' ? 'Temporary workbench preview applied. Revert or close to restore.' : 'Workbench preview reverted.', previewActive: workbenchPreview.active });
                         } catch { webview.postMessage({ command: 'actionResult', ok: false, text: 'Preview action failed. Recovery data retained.' }); }
                         break;
                     case 'exportTheme':
+                    case 'exportPreset':
                         try {
-                            const destination = await vscode.window.showSaveDialog({ filters: { 'VS Code color theme': ['json'] }, saveLabel: 'Export Theme' });
-                            if (destination) await vscode.workspace.fs.writeFile(destination, Buffer.from(JSON.stringify(generateTheme(message.config), null, 2) + '\n'));
-                            webview.postMessage({ command: 'actionResult', ok: true, text: destination ? 'Theme JSON exported.' : 'Export cancelled.' });
+                            const full = message.command === 'exportPreset';
+                            const destination = await vscode.window.showSaveDialog({ filters: full ? { 'Gradient Nitro full preset': ['gradient-nitro.json'] } : { 'VS Code color theme': ['json'] }, saveLabel: full ? 'Export Full Preset' : 'Export VS Code Theme JSON' });
+                            const cfg = normalizeConfig(message.config), theme = generateTheme(cfg);
+                            if (destination) await vscode.workspace.fs.writeFile(destination, Buffer.from(JSON.stringify(full ? exportPreset(cfg, theme) : theme, null, 2) + '\n'));
+                            webview.postMessage({ command: 'actionResult', ok: true, text: destination ? (full ? 'Full preset exported, including runtime settings.' : 'Native theme exported. Runtime effects are not included.') : 'Export cancelled.' });
                         } catch (error) { webview.postMessage({ command: 'actionResult', ok: false, text: 'Export failed: ' + String(error) }); }
+                        break;
+                    case 'importPreset':
+                        try {
+                            const files = await vscode.window.showOpenDialog({ canSelectMany: false, filters: { 'Gradient Nitro full preset': ['json'] }, openLabel: 'Import Full Preset' });
+                            if (files?.[0]) {
+                                const bytes = await vscode.workspace.fs.readFile(files[0]);
+                                if (bytes.length > 2_000_000) throw new Error('Preset exceeds 2 MB.');
+                                const config = importPreset(JSON.parse(Buffer.from(bytes).toString('utf8')));
+                                // Import updates the draft only. Existing runtime authorization stays local.
+                                config.workbenchEffects = getCurrentConfig().workbenchEffects;
+                                webview.postMessage({ command: 'importConfig', config });
+                            }
+                            webview.postMessage({ command: 'actionResult', ok: true, text: files?.length ? 'Preset imported into draft. Save or Preview to apply.' : 'Import cancelled.' });
+                        } catch (error) { webview.postMessage({ command: 'actionResult', ok: false, text: 'Import failed: ' + String(error) }); }
                         break;
                     case 'resetDefaults':
                         try {
@@ -223,12 +239,27 @@ class ThemeCustomizerPanel {
     }
 
     private _getWebviewContent(webview: vscode.Webview, extensionUri: vscode.Uri): string {
-        return customizerHtml(normalizeConfig(getCurrentConfig()), getDefaultConfig());
+        return customizerHtml(normalizeConfig(getCurrentConfig()), getDefaultConfig(), webview, extensionUri);
     }
+}
+
+export async function applyWorkbenchPreview(input: ThemeConfig): Promise<void> {
+    await workbenchPreview.apply(buildColors(input));
+    // A draft never installs the helper or turns on runtime effects. Reuse an opted-in session.
+    const saved = getCurrentConfig();
+    if (saved.workbenchEffects) await syncWorkbenchRuntime(extensionContext, { ...normalizeConfig(input), workbenchEffects: true });
+}
+
+export async function revertWorkbenchPreview(): Promise<void> {
+    const wasActive = workbenchPreview.active;
+    await workbenchPreview.revert();
+    if (wasActive) await syncNativeLayout();
 }
 
 export function getCurrentConfig(): ThemeConfig {
     const nitroConfig = vscode.workspace.getConfiguration('gradientNitro');
+    const snapshot = nitroConfig.get<Partial<ThemeConfig>>('visualConfig');
+    if (snapshot && typeof snapshot === 'object' && Object.keys(snapshot).length) return normalizeConfig(snapshot);
     const editorConfig = vscode.workspace.getConfiguration('editor');
     const savedFont = <T>(key: string, fallback: T): T => nitroConfig.inspect(key)?.globalValue !== undefined ? nitroConfig.get<T>(key, fallback) : fallback;
     const workbenchConfig = vscode.workspace.getConfiguration('workbench');
@@ -247,7 +278,7 @@ export function getCurrentConfig(): ThemeConfig {
         ];
     }
 
-    return {
+    return normalizeConfig({
         ...normalizePalette(Object.fromEntries(Object.entries(paletteDefaults).map(([key, value]) => {
             const inspected = nitroConfig.inspect(key);
             const hasSavedValue = inspected?.globalValue !== undefined || inspected?.workspaceValue !== undefined || inspected?.workspaceFolderValue !== undefined;
@@ -258,7 +289,7 @@ export function getCurrentConfig(): ThemeConfig {
         borderColor: nitroConfig.get<string>('borderColor', '#64748B'),
         borderWidth: nitroConfig.get<number>('borderWidth', 1),
         borderEnabled: nitroConfig.get<boolean>('borderEnabled', true),
-        workbenchEffects: false,
+        workbenchEffects: nitroConfig.get<boolean>('workbenchEffects', false),
         darkIntensity: nitroConfig.get<number>('darkIntensity', 0.65),
         lightIntensity: nitroConfig.get<number>('lightIntensity', 0.55),
         neonGlowIntensity: nitroConfig.get<number>('neonGlowIntensity', 0.18),
@@ -272,48 +303,19 @@ export function getCurrentConfig(): ThemeConfig {
         blurStrength: nitroConfig.get<number>('blurStrength', 24),
         neonGlowSpread: nitroConfig.get<number>('neonGlowSpread', 35),
         glassOpacity: nitroConfig.get<number>('glassOpacity', 0.70),
-        gradientAngle: nitroConfig.get<number>('gradientAngle', 90),
+        gradientAngle: nitroConfig.get<number>('gradientAngle', 135),
         gradientIntensity: nitroConfig.get<number>('gradientIntensity', 0.28),
+        gradientEnabled: nitroConfig.get<boolean>('gradientEnabled', true),
+        gradientStrength: nitroConfig.get<number>('gradientStrength', nitroConfig.get<number>('gradientIntensity', 0.35)),
+        gradientSoftness: nitroConfig.get<number>('gradientSoftness', 0.80),
+        editorSoftlight: nitroConfig.get<number>('editorSoftlight', 0.28),
+        softlightSpread: nitroConfig.get<number>('softlightSpread', 0.70),
         fontFamily: savedFont('fontFamily', editorConfig.get<string>('fontFamily', "'JetBrains Mono', 'Fira Code', Consolas, monospace")),
         fontSize: savedFont('fontSize', editorConfig.get<number>('fontSize', 14)),
         lineHeight: savedFont('lineHeight', editorConfig.get<number>('lineHeight', 23)),
         fontLigatures: savedFont('fontLigatures', editorConfig.get<boolean>('fontLigatures', true)),
         fontWeight: savedFont('fontWeight', editorConfig.get<string>('fontWeight', '400'))
-    };
-}
-
-export function getDefaultConfig(): ThemeConfig {
-    return {
-        ...paletteDefaults,
-        borderColor: '#64748B',
-        borderWidth: 1,
-        borderEnabled: true,
-        workbenchEffects: false,
-        darkIntensity: 0.65,
-        lightIntensity: 0.55,
-        neonGlowIntensity: 0.18,
-        syntaxOverrides: {},
-        fileColors: false,
-        colorStops: [
-            { color: '#28A12F', offset: 0 },
-            { color: '#00D2FF', offset: 40 },
-            { color: '#A008B9', offset: 100 }
-        ],
-        leftColor: '#28A12F',
-        rightColor: '#A008B9',
-        roundedCorners: false,
-        borderRadius: 12,
-        blurStrength: 24,
-        neonGlowSpread: 35,
-        glassOpacity: 0.70,
-        gradientAngle: 90,
-        gradientIntensity: 0.28,
-        fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
-        fontSize: 14,
-        lineHeight: 23,
-        fontLigatures: true,
-        fontWeight: '400'
-    };
+    });
 }
 
 export function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -338,43 +340,11 @@ export function blendColor(hex: string, baseHex: string, ratio: number): string 
     return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
 
-export function normalizeConfig(input: Partial<ThemeConfig>): ThemeConfig {
-    const defaults = getDefaultConfig();
-    const cfg = { ...defaults, ...input };
-    const hex = (value: unknown, fallback: string) => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value) ? value : fallback;
-    const number = (value: unknown, fallback: number, min: number, max: number) => typeof value === 'number' && Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : fallback;
-    cfg.themeMode = cfg.themeMode === 'light' ? 'light' : 'dark';
-    cfg.colorStops = Array.isArray(cfg.colorStops) && cfg.colorStops.length >= 2 ? cfg.colorStops.slice(0, 6).map((stop, i) => ({ color: hex(stop?.color, defaults.colorStops[i % 3].color), offset: number(stop?.offset, i ? 100 : 0, 0, 100) })).sort((a, b) => a.offset - b.offset) : defaults.colorStops;
-    cfg.leftColor = cfg.colorStops[0].color;
-    cfg.rightColor = cfg.colorStops[cfg.colorStops.length - 1].color;
-    cfg.accentColor = hex(cfg.accentColor, defaults.accentColor);
-    cfg.borderColor = hex(cfg.borderColor, defaults.borderColor);
-    cfg.borderWidth = number(cfg.borderWidth, 1, 0, 4);
-    cfg.borderEnabled = cfg.borderEnabled !== false;
-    cfg.workbenchEffects = false;
-    cfg.darkIntensity = number(cfg.darkIntensity, 0.65, 0, 1);
-    cfg.lightIntensity = number(cfg.lightIntensity, 0.55, 0, 1);
-    cfg.neonGlowIntensity = number(cfg.neonGlowIntensity, 0.18, 0, 0.4);
-    cfg.syntaxOverrides = normalizeSyntaxOverrides(cfg.syntaxOverrides);
-    cfg.fileColors = cfg.fileColors !== false;
-    cfg.gradientIntensity = number(cfg.gradientIntensity, 0.28, 0, 0.6);
-    cfg.gradientAngle = number(cfg.gradientAngle, 90, 0, 360);
-    cfg.borderRadius = number(cfg.borderRadius, 12, 0, 24);
-    cfg.blurStrength = number(cfg.blurStrength, 24, 0, 40);
-    cfg.neonGlowSpread = number(cfg.neonGlowSpread, 35, 0, 60);
-    cfg.glassOpacity = number(cfg.glassOpacity, 0.7, 0.5, 1);
-    cfg.fontSize = number(cfg.fontSize, 14, 8, 40);
-    cfg.lineHeight = number(cfg.lineHeight, 23, 0, 60);
-    cfg.fontFamily = typeof cfg.fontFamily === 'string' && /^[\w\s,'".\-]+$/.test(cfg.fontFamily) ? cfg.fontFamily.slice(0, 200) : defaults.fontFamily;
-    cfg.fontWeight = typeof cfg.fontWeight === 'string' && /^(normal|bold|[1-9]00)$/.test(cfg.fontWeight) ? cfg.fontWeight : '400';
-    cfg.roundedCorners = cfg.roundedCorners === true;
-    cfg.fontLigatures = cfg.fontLigatures === true;
-    return { ...cfg, ...normalizePalette(cfg) };
-}
-
 export function buildColors(input: ThemeConfig): Record<string, string> {
     const cfg = normalizeConfig(input);
     const colors = workbenchColors(cfg);
+    // xterm paints its own background, independently of the workbench CSS.
+    if (cfg.workbenchEffects) colors['terminal.background'] = '#00000000';
     // Existing file-family and syntax identities remain independent of BASE / ACCENT.
     for (const [family, data] of Object.entries(fileFamilies)) colors['gradientNitro.file.' + family] = cfg.themeMode === 'light' ? data.light : data.dark;
     const alpha = Math.round(cfg.neonGlowIntensity * (cfg.themeMode === 'light' ? 0.65 : 1) * 255).toString(16).padStart(2, '0');
@@ -388,7 +358,7 @@ export function generateTheme(input: ThemeConfig): Record<string, unknown> {
     const file = path.join(__dirname, '..', 'themes', cfg.themeMode === 'light' ? 'gradient-nitro-light-theme.json' : 'gradient-nitro-theme.json');
     const theme = JSON.parse(fs.readFileSync(file, 'utf8'));
     theme.name = cfg.themeMode === 'light' ? 'Gradient Nitro Glass Light Custom' : 'Gradient Nitro Glass Custom';
-    Object.assign(theme.colors, buildColors(cfg));
+    Object.assign(theme.colors, buildColors({ ...cfg, workbenchEffects: false }));
     if (Object.keys(cfg.syntaxOverrides).length) Object.assign(theme, buildSyntax(cfg.themeMode, cfg.syntaxOverrides));
     return theme;
 }
@@ -398,9 +368,22 @@ export async function applyCustomTheme(input: ThemeConfig) {
     const cfg = normalizeConfig(input);
     await workbenchPreview.revert();
     const nitro = vscode.workspace.getConfiguration('gradientNitro');
+    // One atomic, versioned snapshot is the source read by Studio and runtime after reload.
+    await nitro.update('visualConfig', cfg, vscode.ConfigurationTarget.Global);
     for (const key of fontKeys) await nitro.update(key, cfg[key], vscode.ConfigurationTarget.Global);
     await typography.apply(cfg);
-    for (const key of ['colorStops', 'roundedCorners', 'borderRadius', 'leftColor', 'rightColor', 'blurStrength', 'neonGlowSpread', 'glassOpacity', 'gradientAngle', 'gradientIntensity', 'accentColor', 'borderColor', 'borderWidth', 'borderEnabled', 'workbenchEffects', 'darkIntensity', 'lightIntensity', 'neonGlowIntensity', 'syntaxOverrides', 'fileColors', 'baseColor', 'surfaceDepth', 'contrast', 'accentIntensity', 'inactiveFade', 'borderVisibility', 'activeTabIndicator'] as const) await nitro.update(key, cfg[key], vscode.ConfigurationTarget.Global);
+    const persistenceKeys = [
+        'colorStops', 'roundedCorners', 'borderRadius', 'leftColor', 'rightColor',
+        'blurStrength', 'neonGlowSpread', 'glassOpacity', 'gradientAngle', 'gradientIntensity',
+        'gradientEnabled', 'gradientStrength', 'gradientSoftness', 'editorSoftlight', 'softlightSpread',
+        'accentColor', 'borderColor', 'borderWidth', 'borderEnabled', 'workbenchEffects',
+        'darkIntensity', 'lightIntensity', 'neonGlowIntensity', 'syntaxOverrides', 'fileColors',
+        'baseColor', 'surfaceDepth', 'contrast', 'accentIntensity', 'inactiveFade', 'borderVisibility', 'activeTabIndicator',
+        'gradientMode', 'gradientStops', 'softlightEnabled', 'softlightSoftness', 'softlightMode', 'softlightColor',
+        'glassEnabled', 'glassBlur', 'glassSaturation', 'neonEnabled', 'neonColorMode', 'neonCustomColor',
+        'neonStrength', 'neonRadius', 'neonOpacity', 'motionEnabled', 'motionStrength', 'motionSpring'
+    ] as const;
+    for (const key of persistenceKeys) await nitro.update(key, (cfg as any)[key], vscode.ConfigurationTarget.Global);
     const name = cfg.themeMode === 'light' ? 'Gradient Nitro Glass Light' : 'Gradient Nitro Glass';
     const workbench = vscode.workspace.getConfiguration('workbench');
     const colors = { ...(workbench.inspect<Record<string, any>>('colorCustomizations')?.globalValue || {}) };
@@ -424,13 +407,22 @@ export async function applyCustomTheme(input: ThemeConfig) {
         await extensionContext.globalState.update('savedSyntaxOverrides', { ...savedSyntax, [cfg.themeMode]: cfg.syntaxOverrides });
     }
     await workbench.update('colorTheme', name, vscode.ConfigurationTarget.Global);
-    await nativeLayout.apply(cfg.roundedCorners, cfg.neonGlowIntensity > 0);
+    await nativeLayout.apply(cfg.nativeModernUI, cfg.neonGlowIntensity > 0);
 
     fileColors.refresh();
-    if (!nativeLayout.available && cfg.roundedCorners) vscode.window.showInformationMessage('Native rounded layout requires a VS Code version with workbench.experimental.modernUI. Your theme colors have been applied.');
+    if (input && input.workbenchEffects) {
+        try {
+            await syncWorkbenchRuntime(extensionContext, { ...cfg, workbenchEffects: true });
+        } catch (e) { throw new Error('Configuration saved, but runtime effects could not be applied: ' + String(e)); }
+    } else {
+        await revertWorkbenchRuntime(extensionContext);
+    }
+    if (!nativeLayout.available && cfg.nativeModernUI) vscode.window.showInformationMessage('Native rounded layout requires a VS Code version with workbench.experimental.modernUI. Your theme colors have been applied.');
+    activityView?.refresh();
 }
 
 export async function resetToDefaultSettings() {
+    await revertWorkbenchRuntime(extensionContext);
     await workbenchPreview.revert();
     await typography.restore();
     await nativeLayout.restore();
@@ -454,6 +446,6 @@ export async function resetToDefaultSettings() {
     await workbench.update('colorCustomizations', Object.keys(colors).length ? colors : undefined, vscode.ConfigurationTarget.Global);
     await extensionContext.globalState.update('ownedColors', undefined);
     const nitro = vscode.workspace.getConfiguration('gradientNitro');
-    for (const key of Object.keys(getDefaultConfig())) if (nitro.inspect(key)?.globalValue !== undefined) await nitro.update(key, undefined, vscode.ConfigurationTarget.Global);
+    for (const key of ['visualConfig', ...Object.keys(getDefaultConfig())]) if (nitro.inspect(key)?.globalValue !== undefined) await nitro.update(key, undefined, vscode.ConfigurationTarget.Global);
     await workbench.update('colorTheme', 'Default Dark Modern', vscode.ConfigurationTarget.Global);
 }

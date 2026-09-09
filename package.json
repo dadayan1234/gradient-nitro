@@ -1,8 +1,8 @@
 {
   "name": "gradient-nitro-glass",
   "displayName": "Gradient Nitro Glass Theme",
-  "description": "Purple-toned dark and light themes with a perceptual Base + Accent palette and an interactive live Theme Studio.",
-  "version": "1.4.0",
+  "description": "Purple-toned dark and light themes with a perceptual Base + Accent palette, editor softlight, and an interactive live Theme Studio.",
+  "version": "1.5.3",
   "publisher": "dadayan1234",
   "icon": "icon.png",
   "license": "MIT",
@@ -65,6 +65,23 @@
         "command": "gradientNitro.cleanSettings",
         "title": "Gradient Nitro: Clean All Injected Settings & Styles",
         "category": "Theme"
+      },
+      {
+        "command": "gradientNitro.applySaved",
+        "title": "Gradient Nitro: Apply Saved Theme"
+      },
+      {
+        "command": "gradientNitro.saveAndApply",
+        "title": "Gradient Nitro: Save and Apply Configuration",
+        "icon": "$(save)"
+      },
+      {
+        "command": "gradientNitro.previewSaved",
+        "title": "Gradient Nitro: Preview Saved Theme"
+      },
+      {
+        "command": "gradientNitro.revertPreview",
+        "title": "Gradient Nitro: Revert Preview"
       }
     ],
     "configuration": {
@@ -92,15 +109,14 @@
         "gradientNitro.roundedCorners": {
           "type": "boolean",
           "default": false,
-          "description": "Opt into native Modern UI. VS Code 1.136.1 can suppress line indicators in this layout. Previous preference is restored when leaving Nitro."
+          "description": "Enable the shared runtime radius system for floating and interactive UI."
         },
         "gradientNitro.borderRadius": {
           "type": "number",
           "default": 12,
           "description": "Live workbench corner radius in pixels when workbench effects are enabled.",
           "minimum": 0,
-          "maximum": 24,
-          "deprecationMessage": "Legacy effects setting. Workbench surfaces now derive from Base, Accent and Harmony controls."
+          "maximum": 24
         },
         "gradientNitro.leftColor": {
           "type": "string",
@@ -140,11 +156,43 @@
         },
         "gradientNitro.gradientAngle": {
           "type": "number",
-          "default": 90,
-          "description": "Gradient angle across the workbench and editor with live effects enabled.",
+          "default": 135,
+          "description": "Angle in degrees for the ambient chromatic linear gradient overlay.",
           "minimum": 0,
-          "maximum": 360,
-          "deprecationMessage": "Legacy effects setting. Workbench surfaces now derive from Base, Accent and Harmony controls."
+          "maximum": 360
+        },
+        "gradientNitro.gradientEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable subtle perceptual ambient gradient and editor softlight across the workbench."
+        },
+        "gradientNitro.gradientStrength": {
+          "type": "number",
+          "default": 0.35,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Subtle gradient atmospheric opacity and chromatic influence."
+        },
+        "gradientNitro.gradientSoftness": {
+          "type": "number",
+          "default": 0.8,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Spatial falloff and transition smoothness of gradient stops (higher values yield broad, diffuse ambient lighting without harsh boundaries)."
+        },
+        "gradientNitro.editorSoftlight": {
+          "type": "number",
+          "default": 0.28,
+          "minimum": 0,
+          "maximum": 0.6,
+          "description": "Luminosity of the subtle ambient softlight centered around the active editor content area."
+        },
+        "gradientNitro.softlightSpread": {
+          "type": "number",
+          "default": 0.7,
+          "minimum": 0.2,
+          "maximum": 1.5,
+          "description": "Radial spread and feathering of the editor-centered softlight."
         },
         "gradientNitro.gradientIntensity": {
           "type": "number",
@@ -164,8 +212,7 @@
           "type": "string",
           "default": "#64748B",
           "pattern": "^#[0-9a-fA-F]{6}$",
-          "description": "Panel and widget border color.",
-          "deprecationMessage": "Legacy effects setting. Workbench surfaces now derive from Base, Accent and Harmony controls."
+          "description": "Panel and widget border color, blended using Border visibility in Theme Studio."
         },
         "gradientNitro.borderWidth": {
           "type": "number",
@@ -285,8 +332,7 @@
         "gradientNitro.workbenchEffects": {
           "type": "boolean",
           "default": false,
-          "description": "Legacy compatibility setting. Ignored; no workbench helper is installed.",
-          "deprecationMessage": "Retired. Theme Studio uses supported color tokens; installation patches are no longer loaded."
+          "description": "Opt-in runtime workbench styling for live CSS gradients and editor softlight in the VS Code workbench. When disabled, standard theme color tokens are used."
         },
         "gradientNitro.fontFamily": {
           "type": "string",
@@ -358,6 +404,141 @@
           ],
           "default": "top",
           "description": "Active editor indicator. Side is preview-only; VS Code uses a top line."
+        },
+        "gradientNitro.gradientMode": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "custom"
+          ],
+          "default": "auto",
+          "description": "Gradient harmony mode: auto generates harmonic stops from Base + Accent; custom allows explicit stop definition."
+        },
+        "gradientNitro.gradientStops": {
+          "type": "array",
+          "description": "Multi-color gradient composer color stops."
+        },
+        "gradientNitro.softlightEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable editor-centered ambient softlight."
+        },
+        "gradientNitro.softlightSoftness": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.8,
+          "description": "Softlight radial falloff smoothness."
+        },
+        "gradientNitro.softlightMode": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "accent",
+            "custom"
+          ],
+          "default": "auto",
+          "description": "Softlight color derivation mode."
+        },
+        "gradientNitro.softlightColor": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "default": "#22D3EE",
+          "description": "Custom color for editor softlight."
+        },
+        "gradientNitro.glassEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable glass translucent surfaces on workbench chrome."
+        },
+        "gradientNitro.glassBlur": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 40,
+          "default": 16,
+          "description": "Gaussian blur radius in pixels for glass surfaces."
+        },
+        "gradientNitro.glassSaturation": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 2,
+          "default": 1.05,
+          "description": "Backdrop saturation multiplier for glass surfaces."
+        },
+        "gradientNitro.neonEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable refined neon drop-shadows on active navigation and controls."
+        },
+        "gradientNitro.neonColorMode": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "custom"
+          ],
+          "default": "auto",
+          "description": "Neon glow color mode."
+        },
+        "gradientNitro.neonCustomColor": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "default": "#22D3EE",
+          "description": "Custom neon glow color."
+        },
+        "gradientNitro.neonStrength": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.3,
+          "description": "Neon glow intensity multiplier."
+        },
+        "gradientNitro.neonRadius": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 40,
+          "default": 14,
+          "description": "Neon glow bloom radius in pixels."
+        },
+        "gradientNitro.neonOpacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.24,
+          "description": "Neon glow opacity."
+        },
+        "gradientNitro.motionEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable responsive bubble/spring motion on interactive elements."
+        },
+        "gradientNitro.motionStrength": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.35,
+          "description": "Bubble motion scale response intensity."
+        },
+        "gradientNitro.motionSpring": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.7,
+          "description": "Bubble motion spring softness and overshoot."
+        },
+        "gradientNitro.visualConfig": {
+          "type": "object",
+          "description": "Canonical versioned Theme Studio configuration. Save Theme writes this complete snapshot.",
+          "additionalProperties": true
+        },
+        "gradientNitro.nativeModernUI": {
+          "type": "boolean",
+          "default": false,
+          "description": "Optional native Modern UI layout, independent of runtime rounded surfaces."
+        },
+        "gradientNitro.visualConfigVersion": {
+          "type": "number",
+          "default": 2,
+          "description": "Visual configuration schema version."
         }
       }
     },
@@ -522,17 +703,44 @@
           "highContrastLight": "#00000000"
         }
       }
-    ]
+    ],
+    "menus": {
+      "view/title": [
+        { "command": "gradientNitro.saveAndApply", "when": "view == gradientNitro.studioView", "group": "navigation" }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "gradientNitro",
+          "title": "Gradient Nitro",
+          "icon": "media/activity-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "gradientNitro": [
+        {
+          "id": "gradientNitro.studioView",
+          "name": "Theme Studio",
+          "icon": "media/activity-icon.svg",
+          "contextualTitle": "Gradient Nitro"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run themes:generate",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "package": "vsce package",
-    "test": "npm run compile && node --test tests/theme.test.cjs tests/palette.test.cjs",
+    "package": "vsce package --baseContentUrl https://github.com/dadayan1234/gradient-nitro/blob/main/ --baseImagesUrl https://raw.githubusercontent.com/dadayan1234/gradient-nitro/main/",
+    "test": "npm run compile && node --test tests/theme.test.cjs tests/palette.test.cjs tests/gradient.test.cjs tests/parity.test.cjs",
     "themes:generate": "npm run compile && node scripts/generate-themes.cjs",
     "test:customizer": "npm run compile && node scripts/check-customizer.cjs",
-    "previews:refresh": "npm run test:customizer && node scripts/check-vscode.cjs && node scripts/refresh-previews.cjs"
+    "previews:refresh": "npm run compile && node scripts/record-demo.cjs && node scripts/check-parity.cjs --release-preview && node scripts/refresh-previews.cjs",
+    "release:check": "python scripts/check-release.py",
+    "release:media": "python scripts/check-release.py --remote",
+    "lint": "tsc --noEmit -p ./ && node --check media/customizer.js && node --check media/workbench-runtime.js"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

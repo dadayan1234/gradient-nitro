@@ -37,9 +37,19 @@
 </main>
 <button id="expandControls" class="theme-launcher" aria-expanded="false" aria-controls="controls" hidden><svg class="icon"><use href="#settings"/></svg> Theme</button>
 <aside id="controls" class="controls" aria-label="Theme controls">
-  <header class="controls-header"><div><div class="eyebrow">GRADIENT NITRO</div><h1>Theme Studio<span class="live-dot" title="Live preview"></span></h1></div><button id="collapseControls" class="icon-button" aria-label="Collapse theme controls" aria-expanded="true" aria-controls="controls">−</button></header>
+  <header class="controls-header" id="controlsDragHandle" title="Drag to move. Double-click to reset position.">
+    <div class="header-branding">
+      <img id="extensionLogo" class="app-logo" src="<!--LOGO_URI-->" alt="Gradient Nitro" width="28" height="28">
+      <div class="header-titles">
+        <div class="eyebrow">GRADIENT NITRO</div>
+        <h1>Theme Studio<span class="live-dot" title="Live preview"></span></h1>
+      </div>
+    </div>
+    <button id="collapseControls" class="icon-button" aria-label="Collapse theme controls" aria-expanded="true" aria-controls="controls">−</button>
+  </header>
   <div class="controls-scroll">
     <p class="intro">Shape your workspace.<br><span>Every adjustment, live on the canvas.</span></p>
+    <label class="check-label"><input id="workbenchEffects" type="checkbox"> Render effects in VS Code</label><p class="small-note">Save installs or updates the existing runtime helper. First use may require Reload Window.</p>
     <div class="mode-switch" role="group" aria-label="Theme mode"><button data-mode="dark" id="btnModeDark">Dark</button><button data-mode="light" id="btnModeLight">Light</button></div>
     <section class="control-section"><div class="section-label">FOUNDATION <span>01</span></div>
       <div class="color-row"><label for="baseHex">Base <small>Surface family</small></label><input id="baseColor" type="color" aria-label="Base color picker"><input id="baseHex" class="hex-input" maxlength="7" spellcheck="false" aria-label="Base hex color"></div>
@@ -51,17 +61,97 @@
       <label class="range-label" for="contrast">Text contrast <output id="contrastValue"></output></label><input id="contrast" data-number type="range" min="0.7" max="1.3" step="0.01">
       <label class="range-label" for="accentIntensity">Accent intensity <output id="accentIntensityValue"></output></label><input id="accentIntensity" data-number type="range" min="0.2" max="1.5" step="0.01">
       <label class="range-label" for="inactiveFade">Inactive fade <output id="inactiveFadeValue"></output></label><input id="inactiveFade" data-number type="range" min="0" max="1" step="0.01">
-      <label class="range-label" for="borderVisibility">Border visibility <output id="borderVisibilityValue"></output></label><input id="borderVisibility" data-number type="range" min="0" max="1" step="0.01">
       <label class="select-label" for="activeTabIndicator">Tab indicator<select id="activeTabIndicator"><option value="top">Top Line</option><option value="bottom">Bottom Line</option><option value="side">Side Line</option></select></label>
       <p id="indicatorNote" class="small-note" hidden>Side Line is canvas-only. Save and Export use Top Line in VS Code.</p>
       <label class="check-label"><input id="editorFocused" type="checkbox" checked> Simulate focused editor</label>
     </section>
-    <section class="control-section"><div class="section-label">PRESETS <span>03</span></div><div id="presets" class="presets"></div></section>
+    <section class="control-section" id="borderSection"><div class="section-label">BORDERS</div>
+      <label class="check-label"><input id="borderEnabled" type="checkbox"> Show borders</label>
+      <label class="stack-label" for="borderColor">Border color<input id="borderColor" type="color"></label>
+      <label class="stack-label" for="borderHex">Hex color<input id="borderHex" type="text" maxlength="7" spellcheck="false"></label>
+      <label class="range-label" for="borderWidth">Thickness <output id="borderWidthValue"></output></label><input id="borderWidth" data-number type="range" min="0" max="4" step="0.5">
+      <label class="range-label" for="borderVisibility">Visibility <output id="borderVisibilityValue"></output></label><input id="borderVisibility" data-number type="range" min="0" max="1" step="0.01">
+      <p class="small-note">Thickness applies to workbench effects. Native theme export includes border colors.</p>
+    </section>
+    <section class="control-section" id="gradientSection"><div class="section-label">GRADIENT COMPOSER <span>03</span></div>
+      <label class="check-label"><input id="gradientEnabled" type="checkbox" checked> Enable gradient atmosphere</label>
+      <div class="sub-block">
+        <div class="sub-label">Harmony Mode</div>
+        <div class="mode-switch gradient-mode-switch" role="group" aria-label="Gradient mode">
+          <button type="button" data-gradmode="auto" id="btnGradModeAuto" class="active">Auto Harmony</button>
+          <button type="button" data-gradmode="custom" id="btnGradModeCustom">Custom Stops</button>
+        </div>
+      </div>
+      <div class="sub-block">
+        <div class="sub-label">Color Stops (<span id="stopsCount">3</span>)</div>
+        <div id="gradientStopsList" class="stops-container"></div>
+        <button type="button" id="btnAddStop" class="quiet-button add-stop-btn">+ Add Color</button>
+      </div>
+      <div class="sub-block">
+        <div class="range-label"><span>Direction Angle</span> <output id="gradientAngleValue">135°</output></div>
+        <div class="direction-presets" role="group" aria-label="Direction presets">
+          <button type="button" data-angle="90" title="Right (90°)">→</button>
+          <button type="button" data-angle="135" title="Bottom-Right (135°)" class="active">↘</button>
+          <button type="button" data-angle="180" title="Down (180°)">↓</button>
+          <button type="button" data-angle="225" title="Bottom-Left (225°)">↙</button>
+          <button type="button" data-angle="270" title="Left (270°)">←</button>
+          <button type="button" data-angle="315" title="Top-Left (315°)">↖</button>
+          <button type="button" data-angle="0" title="Up (0°)">↑</button>
+          <button type="button" data-angle="45" title="Top-Right (45°)">↗</button>
+        </div>
+        <input id="gradientAngle" data-number type="range" min="0" max="360" step="5">
+      </div>
+      <label class="range-label" for="gradientSoftness">Global Softness <output id="gradientSoftnessValue"></output></label><input id="gradientSoftness" data-number type="range" min="0" max="1" step="0.01">
+      <label class="range-label" for="gradientStrength">Atmosphere Strength <output id="gradientStrengthValue"></output></label><input id="gradientStrength" data-number type="range" min="0" max="1" step="0.01">
+      <div class="sub-block softlight-block">
+        <div class="sub-label">EDITOR SOFTLIGHT</div>
+        <label class="check-label"><input id="softlightEnabled" type="checkbox" checked> Enable editor-centered softlight</label>
+        <div class="select-label"><span>Color Mode</span>
+          <select id="softlightMode"><option value="auto">Auto Harmonic</option><option value="accent">Accent</option><option value="custom">Custom Color</option></select>
+        </div>
+        <div id="softlightCustomRow" class="color-row" hidden>
+          <label for="softlightCustomHex">Softlight Color</label>
+          <input id="softlightColorPicker" type="color">
+          <input id="softlightCustomHex" class="hex-input" maxlength="7" spellcheck="false">
+        </div>
+        <label class="range-label" for="editorSoftlight">Softlight Strength <output id="editorSoftlightValue"></output></label><input id="editorSoftlight" data-number type="range" min="0" max="0.6" step="0.01">
+        <label class="range-label" for="softlightSoftness">Softlight Softness <output id="softlightSoftnessValue"></output></label><input id="softlightSoftness" data-number type="range" min="0" max="1" step="0.01">
+        <label class="range-label" for="softlightSpread">Softlight Spread <output id="softlightSpreadValue"></output></label><input id="softlightSpread" data-number type="range" min="0.2" max="1.5" step="0.02">
+      </div>
+    </section>
+    <section class="control-section" id="radiusSection"><div class="section-label">ROUNDED UI</div><label class="check-label"><input id="roundedCorners" type="checkbox"> Enable rounded UI</label><label class="range-label" for="borderRadius">Radius <output id="borderRadiusValue">12px</output></label><input id="borderRadius" data-number type="range" min="0" max="24" step="1"></section>
+    <section class="control-section" id="glassSection"><div class="section-label">GLASS SURFACES <span>04</span></div>
+      <label class="check-label"><input id="glassEnabled" type="checkbox" checked> Enable glass translucency &amp; blur</label>
+      <label class="range-label" for="glassBlur">Gaussian Blur <output id="glassBlurValue">16px</output></label><input id="glassBlur" data-number type="range" min="0" max="40" step="1">
+      <label class="range-label" for="glassOpacity">Glass Opacity <output id="glassOpacityValue">82%</output></label><input id="glassOpacity" data-number type="range" min="0.1" max="1" step="0.01">
+      <label class="range-label" for="glassSaturation">Backdrop Saturation <output id="glassSaturationValue">105%</output></label><input id="glassSaturation" data-number type="range" min="0.5" max="2" step="0.05">
+    </section>
+    <section class="control-section" id="lightingSection"><div class="section-label">LIGHTING &amp; NEON <span>05</span></div>
+      <label class="check-label"><input id="neonEnabled" type="checkbox" checked> Enable neon active signal glow</label>
+      <div class="select-label"><span>Glow Color</span>
+        <select id="neonColorMode"><option value="auto">Auto Accent</option><option value="custom">Custom Color</option></select>
+      </div>
+      <div id="neonCustomRow" class="color-row" hidden>
+        <label for="neonCustomHex">Custom Glow Color</label>
+        <input id="neonCustomPicker" type="color">
+        <input id="neonCustomHex" class="hex-input" maxlength="7" spellcheck="false">
+      </div>
+      <label class="range-label" for="neonStrength">Glow Strength <output id="neonStrengthValue">30%</output></label><input id="neonStrength" data-number type="range" min="0" max="1" step="0.01">
+      <label class="range-label" for="neonRadius">Glow Radius <output id="neonRadiusValue">14px</output></label><input id="neonRadius" data-number type="range" min="0" max="40" step="1">
+      <label class="range-label" for="neonOpacity">Glow Opacity <output id="neonOpacityValue">24%</output></label><input id="neonOpacity" data-number type="range" min="0" max="1" step="0.01">
+    </section>
+    <section class="control-section" id="motionSection"><div class="section-label">MOTION &amp; SPRING <span>06</span></div>
+      <label class="check-label"><input id="motionEnabled" type="checkbox" checked> Bubble Motion (iOS spring UI)</label>
+      <label class="range-label" for="motionStrength">Motion Strength <output id="motionStrengthValue">35%</output></label><input id="motionStrength" data-number type="range" min="0" max="1" step="0.01">
+      <label class="range-label" for="motionSpring">Spring Softness <output id="motionSpringValue">70%</output></label><input id="motionSpring" data-number type="range" min="0" max="1" step="0.01">
+      <p class="small-note">Subtle tactile lift and compression on hover and click. Respects prefers-reduced-motion.</p>
+    </section>
+    <section class="control-section"><div class="section-label">PRESETS <span>07</span></div><div id="presets" class="presets"></div></section>
     <details class="control-section" id="paletteDetails"><summary>Generated palette <span>17 roles</span></summary><div id="paletteInspector" class="palette-grid"></div></details>
     <details class="control-section" open><summary>Harmony check</summary><div id="diagnostics" class="diagnostics"></div></details>
-    <details class="control-section"><summary>Typography & syntax</summary><label class="check-label"><input id="fileColors" type="checkbox"> Color file labels by language</label><p class="small-note">Optional file decorations can override active and inactive label colors in VS Code.</p><label class="check-label"><input id="roundedCorners" type="checkbox"> Use native rounded Modern UI</label><p class="small-note">VS Code 1.136.1 Modern UI can hide line indicators. The canvas shows the standard layout.</p><p class="small-note">Your existing syntax palette is separate from the workbench colors.</p><label class="stack-label" for="fontFamily">Font family<input id="fontFamily" type="text"></label><label class="select-label" for="fontSize">Font size<input id="fontSize" type="number" min="8" max="40"></label><label class="select-label" for="lineHeight">Line height<input id="lineHeight" type="number" min="0" max="60"></label><label class="check-label"><input id="fontLigatures" type="checkbox"> Font ligatures</label><label class="select-label" for="fontWeight">Weight<select id="fontWeight"><option>300</option><option>400</option><option>500</option><option>600</option><option>700</option><option>normal</option><option>bold</option></select></label><label class="select-label" for="syntaxLanguage">Syntax sample<select id="syntaxLanguage"></select></label><div id="syntaxControls" class="syntax-controls"></div><button id="resetSyntax" class="quiet-button">Reset this syntax override</button></details>
+    <details class="control-section"><summary>Typography & syntax</summary><label class="check-label"><input id="fileColors" type="checkbox"> Color file labels by language</label><p class="small-note">Optional file decorations can override active and inactive label colors in VS Code.</p><label class="check-label"><input id="nativeModernUI" type="checkbox"> Use native Modern UI layout</label><p class="small-note">VS Code 1.136.1 Modern UI can hide line indicators. The canvas shows the standard layout.</p><p class="small-note">Your existing syntax palette is separate from the workbench colors.</p><label class="stack-label" for="fontFamily">Font family<input id="fontFamily" type="text"></label><label class="select-label" for="fontSize">Font size<input id="fontSize" type="number" min="8" max="40"></label><label class="select-label" for="lineHeight">Line height<input id="lineHeight" type="number" min="0" max="60"></label><label class="check-label"><input id="fontLigatures" type="checkbox"> Font ligatures</label><label class="select-label" for="fontWeight">Weight<select id="fontWeight"><option>300</option><option>400</option><option>500</option><option>600</option><option>700</option><option>normal</option><option>bold</option></select></label><label class="select-label" for="syntaxLanguage">Syntax sample<select id="syntaxLanguage"></select></label><div id="syntaxControls" class="syntax-controls"></div><button id="resetSyntax" class="quiet-button">Reset this syntax override</button></details>
   </div>
-  <footer class="controls-footer"><div class="history-actions"><button id="undo" title="Undo palette edit">↶ Undo</button><button id="redo" title="Redo palette edit">↷ Redo</button><button id="reset" title="Reset canvas to theme defaults">Reset</button></div><div class="save-actions"><button id="save" class="primary-button" data-host-action>Save Theme</button><button id="export" data-host-action>Export JSON</button></div><div class="preview-actions"><button id="previewWorkbench" data-host-action>Preview in Workbench</button><button id="revertPreview" data-host-action disabled>Revert Preview</button></div><p id="actionStatus" class="action-status" role="status" aria-live="polite">Canvas changes are temporary until you save.</p></footer>
+  <footer class="controls-footer"><div class="history-actions"><button id="undo" title="Undo palette edit">↶ Undo</button><button id="redo" title="Redo palette edit">↷ Redo</button><button id="reset" title="Reset canvas to theme defaults">Reset</button></div><div class="save-actions"><button id="save" class="primary-button" data-host-action>Save and Apply Configuration</button><button id="export" data-host-action>Export VS Code Theme JSON</button></div><div class="preset-file-actions"><button id="exportPreset" data-host-action>Export Full Preset</button><button id="importPreset" data-host-action>Import Full Preset</button></div><div class="preview-actions"><button id="previewWorkbench" data-host-action>Preview in Workbench</button><button id="revertPreview" data-host-action disabled>Revert Preview</button></div><p id="actionStatus" class="action-status" role="status" aria-live="polite">Canvas changes are temporary until you save.</p></footer>
 </aside>
 <!--SCRIPT-->
 </body></html>

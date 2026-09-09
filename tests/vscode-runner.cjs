@@ -13,8 +13,23 @@ exports.run=async()=>{
   assert.equal(vscode.workspace.getConfiguration('editor').inspect('tokenColorCustomizations').globalValue,undefined,'No syntax rewrite on workbench Save');
   for(const name of ['README.md','notes.txt','theme.ts'])await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(vscode.Uri.file(path.join(root,'examples',name))),{preview:false});
   await vscode.commands.executeCommand('workbench.actions.view.problems');await capture('native-dark');
+  await engine.applyCustomTheme({...defaults,workbenchEffects:true,roundedCorners:false});
+  await sleep(2000);await vscode.commands.executeCommand('notifications.clearAll');await capture('workbench-preview');
+  await vscode.commands.executeCommand('workbench.action.togglePanel');await capture('workbench-sidebar-only');
+  await vscode.commands.executeCommand('workbench.action.toggleSidebarVisibility');await capture('workbench-editor-only');
+  await vscode.commands.executeCommand('workbench.action.togglePanel');await capture('workbench-panel-only');
+  await vscode.commands.executeCommand('workbench.action.toggleSidebarVisibility');
+  await vscode.commands.executeCommand('workbench.action.splitEditorRight');await capture('workbench-two-groups');
+  await vscode.commands.executeCommand('workbench.action.joinAllGroups');
+  await vscode.commands.executeCommand('workbench.action.toggleAuxiliaryBar');await capture('workbench-secondary');
+  await vscode.commands.executeCommand('workbench.action.toggleAuxiliaryBar');
+  await vscode.commands.executeCommand('workbench.action.toggleZenMode');await capture('workbench-zen');
+  await vscode.commands.executeCommand('workbench.action.toggleZenMode');
+  await capture('workbench-resize');await capture('workbench-panel-resize');
   await engine.applyCustomTheme({...defaults,themeMode:'light',baseColor:'#FAF7FF',roundedCorners:false});await capture('native-light');
   await engine.applyCustomTheme({...defaults,roundedCorners:true});await capture('native-modern');
+  await engine.applyCustomTheme({...defaults,workbenchEffects:true,roundedCorners:false});
+  await vscode.commands.executeCommand('notifications.clearAll');
   await vscode.commands.executeCommand('gradientNitro.openCustomizer');await capture('studio-webview');
   // Workbench preview API uses only configuration, and preserves later user edits.
   const memory={},state={get:key=>memory[key],update:async(key,value)=>{memory[key]=value;}};

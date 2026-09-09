@@ -6,7 +6,7 @@ const clone = value => JSON.parse(JSON.stringify(value));
 let state = { ...clone(initialConfig), ...engine.normalizePalette(initialConfig), activeActivityItem: 'explorer', activeEditorTab: 'main.py', activePanel: 'Terminal', selectedExplorerItem: 'main.py', editorFocused: true, controlsCollapsed: false, syntaxLanguage: 'python' };
 const history = [], future = [];
 let pendingHistory, historyTimer, frame, sentConfig, busy = false, previewActive = false;
-const config = () => Object.fromEntries(Object.keys(defaultConfig).map(key => [key, clone(state[key])]));
+const config = () => configEngine.normalizeConfig(state);
 function commitHistory() {
     clearTimeout(historyTimer);
     if (pendingHistory && JSON.stringify(pendingHistory) !== JSON.stringify(config())) {
@@ -38,7 +38,7 @@ engine.presets.forEach((preset,index) => {
     const dots = document.createElement('span'); dots.className = 'preset-dots';
     for (const color of [preset.baseColor,preset.accentColor]) { const dot = document.createElement('i'); dot.style.backgroundColor = color; dots.append(dot); }
     const title = document.createElement('strong'), description = document.createElement('small'); title.textContent = preset.name; description.textContent = preset.character;
-    button.append(dots,title,description); button.addEventListener('click',() => modify({ baseColor: preset.baseColor, accentColor: preset.accentColor, themeMode: 'dark' })); $('presets').append(button);
+    button.append(dots,title,description); button.addEventListener('click',() => modify({ baseColor: preset.baseColor, accentColor: preset.accentColor, themeMode: 'dark', ...(state.gradientMode==='auto'?{gradientStops:engine.deriveDefaultStops(preset.baseColor,preset.accentColor)}:{}) })); $('presets').append(button);
 });
 const files = [['app',0,true],['api',1,true],['core',1,true],['config.py',2],['database.py',2],['logging_config.py',2],['security.py',2],['modules',1,true],['services',1,true],['views',1,true],['main.py',2],['assets',0,true],['docs',0,true],['tests',0,true],['README.md',0],['pyproject.toml',0]];
 files.forEach(([name,indent,folder]) => {
@@ -102,10 +102,189 @@ syntaxData.roles.forEach(role => {
     const input = document.createElement('input'); input.type = 'color'; input.id = 'syntax-'+role; input.setAttribute('aria-label',role+' syntax color');
     input.addEventListener('input',() => modify({ syntaxOverrides: { ...state.syntaxOverrides, [state.syntaxLanguage]: { ...state.syntaxOverrides[state.syntaxLanguage], [role]: input.value } } },true)); input.addEventListener('change',commitHistory); label.append(input); $('syntaxControls').append(label);
 });
+function updateStop(id, patch, continuous = true) {
+    modify({gradientStops:state.gradientStops.map(stop=>stop.id===id?{...stop,...patch}:stop),gradientMode:'custom'},continuous);
+}
+let stopsSignature = '';
+function renderStops() {
+    const list = $('gradientStopsList');
+    if (!list) return;
+    const stops = state.gradientStops || [];
+    const currentSig = stops.map(stop=>stop.id).join('|');
+    if (currentSig === stopsSignature && list.children.length === stops.length) {
+        stops.forEach((stop, i) => {
+            const row = list.children[i];
+            if (!row) return;
+            const colorPicker = row.querySelector('.stop-color-picker');
+            const hexInput = row.querySelector('.stop-hex-input');
+            const posInput = row.querySelector('.stop-pos-input');
+            const posVal = row.querySelector('.stop-pos-val');
+            const opInput = row.querySelector('.stop-op-input');
+            const opVal = row.querySelector('.stop-op-val');
+            const softInput = row.querySelector('.stop-soft-input');
+            const softVal = row.querySelector('.stop-soft-val');
+            if (colorPicker && document.activeElement !== colorPicker) colorPicker.value = stop.color;
+            if (hexInput && document.activeElement !== hexInput) hexInput.value = stop.color;
+            if (posInput && document.activeElement !== posInput) posInput.value = stop.position;
+            if (posVal) posVal.textContent = stop.position + '%';
+            if (opInput && document.activeElement !== opInput) opInput.value = stop.opacity;
+            if (opVal) opVal.textContent = Math.round(stop.opacity * 100) + '%';
+            if (softInput && document.activeElement !== softInput) softInput.value = stop.softness;
+            if (softVal) softVal.textContent = Math.round(stop.softness * 100) + '%';
+        });
+        return;
+    }
+    stopsSignature = currentSig;
+    list.replaceChildren();
+    $('stopsCount').textContent = stops.length;
+    stops.forEach((stop, i) => {
+        const row = document.createElement('div');
+        row.className = 'stop-row';
+        row.dataset.stopId = stop.id;
+
+        const header = document.createElement('div');
+        header.className = 'stop-header';
+
+        const colorPicker = document.createElement('input');
+        colorPicker.type = 'color';
+        colorPicker.className = 'stop-color-picker';
+        colorPicker.value = stop.color;
+
+        const hexInput = document.createElement('input');
+        hexInput.type = 'text';
+        hexInput.className = 'hex-input stop-hex-input';
+        hexInput.value = stop.color;
+        hexInput.maxLength = 7;
+        hexInput.spellcheck = false;
+
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'stop-delete-btn';
+        delBtn.textContent = '×';
+        delBtn.title = 'Remove color stop';
+        delBtn.disabled = stops.length <= 2;
+
+        colorPicker.addEventListener('input', () => {
+            hexInput.value = colorPicker.value.toUpperCase();
+            updateStop(stop.id, {color:colorPicker.value.toUpperCase()});
+        });
+        colorPicker.addEventListener('change', commitHistory);
+
+        hexInput.addEventListener('input', () => {
+            if (/^#[a-f\d]{6}$/i.test(hexInput.value)) {
+                colorPicker.value = hexInput.value.toUpperCase();
+                updateStop(stop.id, {color:hexInput.value.toUpperCase()});
+            }
+        });
+        hexInput.addEventListener('change', commitHistory);
+
+        delBtn.addEventListener('click', () => {
+            if (state.gradientStops.length > 2) {
+                modify({gradientStops:state.gradientStops.filter(s=>s.id!==stop.id),gradientMode:'custom'});
+            }
+        });
+
+        header.append(colorPicker, hexInput);
+        for (const [delta,label] of [[-1,'Move color earlier'],[1,'Move color later']]) {
+            const button=document.createElement('button');button.type='button';button.className='stop-reorder';button.textContent=delta<0?'↑':'↓';button.title=label;button.setAttribute('aria-label',label);
+            button.disabled=i+delta<0||i+delta>=stops.length;
+            button.addEventListener('click',()=>{
+                const items=clone(state.gradientStops),index=items.findIndex(s=>s.id===stop.id),target=index+delta;
+                if(target<0||target>=items.length)return;
+                [items[index].position,items[target].position]=[items[target].position,items[index].position];
+                [items[index],items[target]]=[items[target],items[index]];
+                modify({gradientStops:items,gradientMode:'custom'});
+            });header.append(button);
+        }
+        header.append(delBtn);
+
+        const sliders = document.createElement('div');
+        sliders.className = 'stop-sliders';
+
+        // Position
+        const posItem = document.createElement('div');
+        posItem.className = 'stop-slider-item';
+        const posLabel = document.createElement('label');
+        posLabel.innerHTML = `Pos <output class="stop-pos-val">${stop.position}%</output>`;
+        const posInput = document.createElement('input');
+        posInput.type = 'range';
+        posInput.min = 0; posInput.max = 100; posInput.step = 1;
+        posInput.className = 'stop-pos-input';
+        posInput.value = stop.position;
+        posInput.addEventListener('input', () => {
+            updateStop(stop.id, {position:Number(posInput.value)});
+        });
+        posInput.addEventListener('change', () => {
+            state.gradientStops.sort((a, b) => a.position - b.position);
+            commitHistory();
+            schedule();
+        });
+        posItem.append(posLabel, posInput);
+
+        // Opacity
+        const opItem = document.createElement('div');
+        opItem.className = 'stop-slider-item';
+        const opLabel = document.createElement('label');
+        opLabel.innerHTML = `Alpha <output class="stop-op-val">${Math.round(stop.opacity * 100)}%</output>`;
+        const opInput = document.createElement('input');
+        opInput.type = 'range';
+        opInput.min = 0; opInput.max = 1; opInput.step = 0.02;
+        opInput.className = 'stop-op-input';
+        opInput.value = stop.opacity;
+        opInput.addEventListener('input', () => {
+            updateStop(stop.id, {opacity:Number(opInput.value)});
+        });
+        opInput.addEventListener('change', commitHistory);
+        opItem.append(opLabel, opInput);
+
+        // Softness
+        const softItem = document.createElement('div');
+        softItem.className = 'stop-slider-item';
+        const softLabel = document.createElement('label');
+        softLabel.innerHTML = `Soft <output class="stop-soft-val">${Math.round(stop.softness * 100)}%</output>`;
+        const softInput = document.createElement('input');
+        softInput.type = 'range';
+        softInput.min = 0; softInput.max = 1; softInput.step = 0.02;
+        softInput.className = 'stop-soft-input';
+        softInput.value = stop.softness;
+        softInput.addEventListener('input', () => {
+            updateStop(stop.id, {softness:Number(softInput.value)});
+        });
+        softInput.addEventListener('change', commitHistory);
+        softItem.append(softLabel, softInput);
+
+        sliders.append(posItem, opItem, softItem);
+        row.append(header, sliders);
+        list.append(row);
+    });
+}
+
 function render() {
     const palette = engine.derivePalette(state), tokens = engine.workbenchColors(state,palette), root = document.documentElement;
+    const gradient = engine.deriveGradient(state, palette);
     for (const [role,color] of Object.entries(palette)) root.style.setProperty('--theme-'+role,color);
     for (const [token,color] of Object.entries(tokens)) root.style.setProperty('--wb-'+token.replaceAll('.','-'),color);
+    const composition = engine.deriveComposition(state, palette);
+    for (const [surface, color] of Object.entries(composition.surfaces))
+        root.style.setProperty('--theme-'+surface+'-glass', color);
+    root.style.setProperty('--editor-gradient', gradient.editorGradient);
+    root.style.setProperty('--workbench-gradient', gradient.workbenchGradient);
+    root.style.setProperty('--softlight-gradient', gradient.softlightGradient);
+    root.style.setProperty('--panel-gradient', gradient.panelGradient);
+    root.style.setProperty('--canvas-glass-filter', gradient.glassFilter);
+    root.style.setProperty('--canvas-neon-filter', composition.neonFilter);
+    root.style.setProperty('--motion-scale-hover', String(composition.hoverScale));
+    root.style.setProperty('--motion-scale-active', String(composition.pressScale));
+    root.style.setProperty('--motion-spring', gradient.motionSpringBezier);
+    root.style.setProperty('--motion-duration', composition.motion.duration+'ms');
+    for (const [role, radius] of Object.entries(composition.radius)) root.style.setProperty('--radius-'+role, radius+'px');
+    setValue('borderRadius',state.borderRadius); $('borderRadiusValue').textContent = state.borderRadius+'px';
+    $('nativeModernUI').checked = state.nativeModernUI;
+    $('workbenchEffects').checked = state.workbenchEffects;
+    $('borderEnabled').checked = state.borderEnabled;
+    setValue('borderWidth',state.borderWidth); $('borderWidthValue').textContent = state.borderWidth+'px';
+    setValue('borderColor',state.borderColor); setValue('borderHex',state.borderColor);
+    root.style.setProperty('--canvas-border-width',(state.borderEnabled ? state.borderWidth : 0)+'px');
     root.style.setProperty('--control-surface',palette['base-2']+'EE'); root.style.setProperty('--control-shadow',palette['base-0']+'B0');
     root.style.colorScheme = state.themeMode;
     root.style.setProperty('--font-family',state.fontFamily); root.style.setProperty('--font-size',state.fontSize+'px'); root.style.setProperty('--line-height',(state.lineHeight || Math.round(state.fontSize*1.6))+'px'); root.style.setProperty('--font-weight',state.fontWeight);
@@ -119,6 +298,63 @@ function render() {
         setValue(key,state[key]);
         $(key+'Value').textContent = key === 'surfaceDepth' ? state[key] < .65 ? 'Low' : state[key] > 1.35 ? 'High' : 'Medium' : key === 'contrast' ? state[key] < .9 ? 'Soft' : state[key] > 1.1 ? 'High' : 'Balanced' : Math.round(state[key]*100)+'%';
     }
+    $('gradientEnabled').checked = state.gradientEnabled;
+    for (const key of ['gradientStrength','gradientSoftness','editorSoftlight','softlightSpread','gradientAngle']) {
+        setValue(key, state[key]);
+        $(key+'Value').textContent = key === 'gradientStrength' ? state[key] < .25 ? 'Subtle' : state[key] > .65 ? 'Vibrant' : 'Balanced' :
+            key === 'gradientSoftness' ? state[key] < .35 ? 'Defined' : state[key] > .70 ? 'Very Soft' : 'Balanced' :
+            key === 'editorSoftlight' ? state[key] < .18 ? 'Faint' : state[key] > .40 ? 'Luminous' : 'Subtle' :
+            key === 'softlightSpread' ? state[key] < .5 ? 'Focused' : state[key] > .95 ? 'Expansive' : 'Broad' :
+            Math.round(state[key]) + '°';
+    }
+
+    // Gradient stops & modes
+    $('btnGradModeAuto').classList.toggle('active', state.gradientMode === 'auto');
+    $('btnGradModeCustom').classList.toggle('active', state.gradientMode === 'custom');
+    document.querySelectorAll('[data-angle]').forEach(btn => {
+        const active = Number(btn.dataset.angle) === Math.round(state.gradientAngle);
+        btn.classList.toggle('active', active);
+    });
+    renderStops();
+
+    // Softlight controls
+    $('softlightEnabled').checked = state.softlightEnabled;
+    setValue('softlightMode', state.softlightMode);
+    $('softlightCustomRow').hidden = state.softlightMode !== 'custom';
+    setValue('softlightColorPicker', state.softlightColor);
+    setValue('softlightCustomHex', state.softlightColor);
+    setValue('softlightSoftness', state.softlightSoftness);
+    $('softlightSoftnessValue').textContent = state.softlightSoftness < .35 ? 'Defined' : state.softlightSoftness > .70 ? 'Very Soft' : 'Balanced';
+
+    // Glass controls
+    $('glassEnabled').checked = state.glassEnabled;
+    setValue('glassBlur', state.glassBlur);
+    $('glassBlurValue').textContent = Math.round(state.glassBlur) + 'px';
+    setValue('glassOpacity', state.glassOpacity);
+    $('glassOpacityValue').textContent = Math.round(state.glassOpacity * 100) + '%';
+    setValue('glassSaturation', state.glassSaturation);
+    $('glassSaturationValue').textContent = Math.round(state.glassSaturation * 100) + '%';
+
+    // Neon controls
+    $('neonEnabled').checked = state.neonEnabled;
+    setValue('neonColorMode', state.neonColorMode);
+    $('neonCustomRow').hidden = state.neonColorMode !== 'custom';
+    setValue('neonCustomPicker', state.neonCustomColor);
+    setValue('neonCustomHex', state.neonCustomColor);
+    setValue('neonStrength', state.neonStrength);
+    $('neonStrengthValue').textContent = Math.round(state.neonStrength * 100) + '%';
+    setValue('neonRadius', state.neonRadius);
+    $('neonRadiusValue').textContent = Math.round(state.neonRadius) + 'px';
+    setValue('neonOpacity', state.neonOpacity);
+    $('neonOpacityValue').textContent = Math.round(state.neonOpacity * 100) + '%';
+
+    // Motion controls
+    $('motionEnabled').checked = state.motionEnabled;
+    setValue('motionStrength', state.motionStrength);
+    $('motionStrengthValue').textContent = Math.round(state.motionStrength * 100) + '%';
+    setValue('motionSpring', state.motionSpring);
+    $('motionSpringValue').textContent = Math.round(state.motionSpring * 100) + '%';
+
     for (const key of ['fontFamily','fontSize','lineHeight','fontWeight','activeTabIndicator','syntaxLanguage']) setValue(key,state[key]);
     $('fontLigatures').checked = state.fontLigatures; $('editorFocused').checked = state.editorFocused;
     $('roundedCorners').checked = state.roundedCorners;
@@ -140,14 +376,110 @@ function render() {
     for (const item of engine.diagnostics(palette)) { const row = document.createElement('div'); row.className = 'diagnostic'+(item.warning ? ' warning' : ''); const label = document.createElement('span'), value = document.createElement('span'); label.textContent = item.label; value.textContent = item.value; row.append(label,value); $('diagnostics').append(row); }
     updateHistoryButtons();
 }
+
 for (const [picker,hex,key] of [['baseColor','baseHex','baseColor'],['accentColor','accentHex','accentColor']]) {
-    $(picker).addEventListener('input',() => { $(hex).value = $(picker).value.toUpperCase(); $(hex).removeAttribute('aria-invalid'); $('colorError').hidden = true; modify({ [key]: $(picker).value.toUpperCase() },true); });
-    $(hex).addEventListener('input',() => { const valid = /^#[a-f\d]{6}$/i.test($(hex).value); $(hex).setAttribute('aria-invalid',!valid); $('colorError').hidden = valid; if (valid) modify({ [key]: $(hex).value.toUpperCase() },true); });
+    $(picker).addEventListener('input',() => {
+        $(hex).value = $(picker).value.toUpperCase(); $(hex).removeAttribute('aria-invalid'); $('colorError').hidden = true;
+        const patch = { [key]: $(picker).value.toUpperCase() };
+        if (state.gradientMode === 'auto') patch.gradientStops = engine.deriveDefaultStops(key === 'baseColor' ? patch[key] : state.baseColor, key === 'accentColor' ? patch[key] : state.accentColor);
+        modify(patch, true);
+    });
+    $(hex).addEventListener('input',() => {
+        const valid = /^#[a-f\d]{6}$/i.test($(hex).value); $(hex).setAttribute('aria-invalid',!valid); $('colorError').hidden = valid;
+        if (valid) {
+            const patch = { [key]: $(hex).value.toUpperCase() };
+            if (state.gradientMode === 'auto') patch.gradientStops = engine.deriveDefaultStops(key === 'baseColor' ? patch[key] : state.baseColor, key === 'accentColor' ? patch[key] : state.accentColor);
+            modify(patch, true);
+        }
+    });
     $(picker).addEventListener('change',commitHistory); $(hex).addEventListener('change',commitHistory);
 }
-document.querySelectorAll('[data-number]').forEach(input => { input.addEventListener('input',() => modify({ [input.id]: Number(input.value), ...(input.id === 'borderVisibility' ? { borderEnabled: true, borderWidth: 1 } : {}) },true)); input.addEventListener('change',commitHistory); });
+document.querySelectorAll('[data-number]').forEach(input => {
+    input.addEventListener('input',() => modify({ [input.id]: Number(input.value) },true));
+    input.addEventListener('change',commitHistory);
+});
+$('gradientEnabled').addEventListener('change', event => modify({ gradientEnabled: event.target.checked }));
+$('borderEnabled').addEventListener('change',event => modify({borderEnabled:event.target.checked}));
+for (const id of ['borderColor','borderHex']) {
+    $(id).addEventListener('input',() => {
+        const valid = /^#[a-f\d]{6}$/i.test($(id).value);
+        $(id).setAttribute('aria-invalid',String(!valid));
+        if (valid) modify({borderColor:$(id).value.toUpperCase()},true);
+    });
+    $(id).addEventListener('change',commitHistory);
+}
+$('btnAddStop').addEventListener('click', () => {
+    if (state.gradientStops.length >= 8) return;
+    const stops = [...state.gradientStops];
+    const last = stops[stops.length - 1];
+    const prev = stops[stops.length - 2] || stops[0];
+    const newPos = Math.round((prev.position + last.position) / 2) || Math.min(100, last.position + 10);
+    const newColor = engine.perceptualMix(prev.color, last.color, 0.5);
+    stops.push({
+        id: 'stop-' + Date.now(),
+        color: newColor,
+        position: newPos,
+        opacity: Number(((prev.opacity + last.opacity) / 2).toFixed(2)),
+        softness: state.gradientSoftness
+    });
+    stops.sort((a, b) => a.position - b.position);
+    modify({ gradientStops: stops, gradientMode: 'custom' });
+});
+$('btnGradModeAuto').addEventListener('click', () => {
+    const defaultStops = engine.deriveDefaultStops(state.baseColor, state.accentColor);
+    modify({ gradientMode: 'auto', gradientStops: defaultStops });
+});
+$('btnGradModeCustom').addEventListener('click', () => {
+    modify({ gradientMode: 'custom' });
+});
+document.querySelectorAll('[data-angle]').forEach(btn => {
+    btn.addEventListener('click', () => {
+        modify({ gradientAngle: Number(btn.dataset.angle) });
+    });
+});
+$('softlightEnabled').addEventListener('change', e => modify({ softlightEnabled: e.target.checked }));
+$('softlightMode').addEventListener('change', e => modify({ softlightMode: e.target.value }));
+$('softlightColorPicker').addEventListener('input', () => {
+    const val = $('softlightColorPicker').value.toUpperCase();
+    $('softlightCustomHex').value = val;
+    modify({ softlightColor: val }, true);
+});
+$('softlightColorPicker').addEventListener('change', commitHistory);
+$('softlightCustomHex').addEventListener('input', () => {
+    if (/^#[a-f\d]{6}$/i.test($('softlightCustomHex').value)) {
+        const val = $('softlightCustomHex').value.toUpperCase();
+        $('softlightColorPicker').value = val;
+        modify({ softlightColor: val }, true);
+    }
+});
+$('softlightCustomHex').addEventListener('change', commitHistory);
+
+$('glassEnabled').addEventListener('change', e => modify({ glassEnabled: e.target.checked }));
+$('neonEnabled').addEventListener('change', e => modify({ neonEnabled: e.target.checked }));
+$('neonColorMode').addEventListener('change', e => modify({ neonColorMode: e.target.value }));
+$('neonCustomPicker').addEventListener('input', () => {
+    const val = $('neonCustomPicker').value.toUpperCase();
+    $('neonCustomHex').value = val;
+    modify({ neonCustomColor: val }, true);
+});
+$('neonCustomPicker').addEventListener('change', commitHistory);
+$('neonCustomHex').addEventListener('input', () => {
+    if (/^#[a-f\d]{6}$/i.test($('neonCustomHex').value)) {
+        const val = $('neonCustomHex').value.toUpperCase();
+        $('neonCustomPicker').value = val;
+        modify({ neonCustomColor: val }, true);
+    }
+});
+$('neonCustomHex').addEventListener('change', commitHistory);
+$('motionEnabled').addEventListener('change', e => modify({ motionEnabled: e.target.checked }));
+
 $('activeTabIndicator').addEventListener('change',event => modify({ activeTabIndicator: event.target.value }));
-document.querySelectorAll('[data-mode]').forEach(button => button.addEventListener('click',() => modify({ themeMode: button.dataset.mode, baseColor: button.dataset.mode === 'light' ? '#FAF7FF' : engine.paletteDefaults.baseColor })));
+document.querySelectorAll('[data-mode]').forEach(button => button.addEventListener('click',() => {
+    const newBase = button.dataset.mode === 'light' ? '#FAF7FF' : engine.paletteDefaults.baseColor;
+    const patch = { themeMode: button.dataset.mode, baseColor: newBase };
+    if (state.gradientMode === 'auto') patch.gradientStops = engine.deriveDefaultStops(newBase, state.accentColor);
+    modify(patch);
+}));
 document.querySelectorAll('[data-activity]').forEach(button => button.addEventListener('click',() => { state.activeActivityItem = button.dataset.activity; state.editorFocused = false; schedule(); }));
 document.querySelectorAll('[data-tab]').forEach(button => button.addEventListener('click',() => { state.activeEditorTab = button.dataset.tab; state.editorFocused = true; schedule(); }));
 document.querySelectorAll('[data-panel]').forEach(button => button.addEventListener('click',() => { state.activePanel = button.dataset.panel; state.editorFocused = false; schedule(); }));
@@ -165,17 +497,51 @@ for (const key of ['fontFamily','fontSize','lineHeight','fontWeight']) $(key).ad
 });
 $('fontLigatures').addEventListener('change',event => modify({ fontLigatures: event.target.checked }));
 $('roundedCorners').addEventListener('change',event => modify({ roundedCorners: event.target.checked }));
+$('nativeModernUI').addEventListener('change',event => modify({ nativeModernUI: event.target.checked }));
+$('workbenchEffects').addEventListener('change',event => modify({ workbenchEffects: event.target.checked }));
 $('fileColors').addEventListener('change',event => modify({ fileColors: event.target.checked }));
 $('syntaxLanguage').addEventListener('change',event => { state.syntaxLanguage = event.target.value; schedule(); });
 $('resetSyntax').addEventListener('click',() => { const overrides = clone(state.syntaxOverrides); delete overrides[state.syntaxLanguage]; modify({ syntaxOverrides: overrides }); });
 $('undo').addEventListener('click',() => { commitHistory(); if (history.length) { future.push(config()); Object.assign(state,history.pop()); draftStatus(); render(); } });
 $('redo').addEventListener('click',() => { commitHistory(); if (future.length) { history.push(config()); Object.assign(state,future.pop()); draftStatus(); render(); } });
-$('reset').addEventListener('click',() => modify(clone(defaultConfig)));
+$('reset').addEventListener('click',() => modify({ ...clone(defaultConfig), workbenchEffects: state.workbenchEffects }));
 function hostAction(command) { if (busy) return; commitHistory(); busy = true; document.querySelectorAll('[data-host-action]').forEach(button => { button.disabled = true; }); $('actionStatus').textContent = 'Working…'; const submitted = config(); sentConfig = JSON.stringify(submitted); vscode.postMessage({ command, config: submitted }); }
 $('save').addEventListener('click',() => hostAction('applyTheme')); $('export').addEventListener('click',() => hostAction('exportTheme')); $('previewWorkbench').addEventListener('click',() => hostAction('previewWorkbench')); $('revertPreview').addEventListener('click',() => hostAction('revertPreview'));
+$('exportPreset').addEventListener('click',() => hostAction('exportPreset'));
+$('importPreset').addEventListener('click',() => hostAction('importPreset'));
 window.addEventListener('message',event => {
     const message = event.data;
+    if (message.command === 'saveAndApply') hostAction('applyTheme');
+    if (message.command === 'importConfig') modify(configEngine.normalizeConfig(message.config));
     if (message.command === 'actionResult') { busy = false; if (typeof message.previewActive === 'boolean') previewActive = message.previewActive; document.querySelectorAll('[data-host-action]').forEach(button => { button.disabled = button.id === 'revertPreview' && !previewActive; }); $('actionStatus').textContent = message.ok && message.action === 'applyTheme' && sentConfig !== JSON.stringify(config()) ? 'Submitted theme saved. The current canvas has unsaved changes.' : message.text; }
     if (message.command === 'syncConfig') { Object.assign(state,message.config,engine.normalizePalette(message.config)); pendingHistory = undefined; history.length = future.length = 0; render(); }
 });
+// Overlay placement is session UI state, excluded from the canonical visual configuration.
+let panelPosition, drag;
+const dragHandle = $('controlsDragHandle');
+function placeControls() {
+    const panel = $('controls');
+    if (innerWidth <= 700 || !panelPosition) {
+        for (const key of ['left','right','top','bottom','height']) panel.style.removeProperty(key);
+        return;
+    }
+    const box = panel.getBoundingClientRect(), height = Math.min(panelPosition.height, innerHeight-24);
+    panelPosition.x = Math.max(12,Math.min(innerWidth-box.width-12,panelPosition.x));
+    panelPosition.y = Math.max(12,Math.min(innerHeight-height-12,panelPosition.y));
+    Object.assign(panel.style,{left:panelPosition.x+'px',top:panelPosition.y+'px',right:'auto',bottom:'auto',height:height+'px'});
+}
+dragHandle.addEventListener('pointerdown', event => {
+    if (innerWidth <= 700 || event.button !== 0 || event.target.closest('button,input,select,a')) return;
+    const box = $('controls').getBoundingClientRect();
+    panelPosition = {x:box.x,y:box.y,height:box.height};
+    drag = {id:event.pointerId,dx:event.clientX-box.x,dy:event.clientY-box.y};
+    dragHandle.setPointerCapture(event.pointerId);event.preventDefault();
+});
+dragHandle.addEventListener('pointermove', event => {
+    if (!drag || drag.id !== event.pointerId) return;
+    panelPosition.x=event.clientX-drag.dx;panelPosition.y=event.clientY-drag.dy;placeControls();
+});
+for (const name of ['pointerup','pointercancel','lostpointercapture']) dragHandle.addEventListener(name,()=>{drag=undefined;});
+dragHandle.addEventListener('dblclick',event=>{if(!event.target.closest('button')){panelPosition=undefined;placeControls();}});
+window.addEventListener('resize',placeControls);
 render();

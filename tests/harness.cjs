@@ -8,6 +8,7 @@ function harness() {
   const vscode = {
     EventEmitter: class { event = () => ({ dispose() {} }); fire() {} dispose() {} },
     ThemeColor: class { constructor(id) { this.id = id; } },
+    TreeItem: class { constructor(label) { this.label = label; } },
     FileType: { Directory: 2 },
     ConfigurationTarget: { Global: 1 }, ViewColumn: { One: 1 },
     workspace: { fs: { async stat() { return { type: 1 }; } }, onDidChangeConfiguration(fn) { listeners.push(fn); return { dispose() {} }; }, getConfiguration(section) { return {
@@ -16,6 +17,7 @@ function harness() {
       async update(key, value) { writes.push(section + '.' + key); if (value === undefined) delete global[section + '.' + key]; else global[section + '.' + key] = value; }
     }; } },
     window: {
+      registerTreeDataProvider() { return { dispose() {} }; },
       registerFileDecorationProvider() { return { dispose() {} }; },
       showInformationMessage() {}, showErrorMessage() {},
       createWebviewPanel() { panel = { webview: { html: '', onDidReceiveMessage(fn) { panel.receive = fn; }, postMessage() {} }, onDidDispose() {}, dispose() {}, reveal() {} }; return panel; }

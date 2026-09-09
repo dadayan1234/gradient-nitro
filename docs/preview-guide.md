@@ -1,53 +1,58 @@
-# Theme Studio 1.4.0 previews
+# Theme Studio 1.5.3: access, screenshots and animation
 
-These screenshots show the current Theme Studio and VS Code 1.136.1. Native screenshots are captured in a separate Extension Development Host profile; the browser canvas screenshots use the same Webview code. No workbench CSS is injected for capture.
+## Open the side menu
 
-## Open and customize
+Install `gradient-nitro-glass-1.5.3.vsix`, then select a Gradient Nitro theme. Click **Gradient Nitro** in the Activity Bar to open its **Theme Studio** side menu. If the icon is hidden, right-click the Activity Bar and enable Gradient Nitro.
 
-Install `gradient-nitro-glass-1.4.0.vsix` with **Extensions: Install from VSIX…**, then run **Gradient Nitro: Open Theme Customizer** from the Command Palette.
+![Gradient Nitro side menu with status, Studio launcher and save actions](images/theme-studio-side-menu.png)
 
-![Dark Theme Studio](images/theme-studio.png)
+Click **Open Theme Studio**. The same action is available as **Gradient Nitro: Open Theme Customizer** in the Command Palette.
 
-Use Base and Accent to set the palette, then refine Harmony. The overlay scrolls to reveal presets, generated swatches, diagnostics and typography/syntax controls. Editor tabs, navigation, tree rows and bottom-panel tabs respond to clicks.
+The side menu shows saved Base and Accent colors, runtime status, and actions to Save and Apply, Apply Saved, Preview Saved and Revert Preview. The save icon in the side-menu header invokes **Save and Apply Configuration**.
 
-![Light Theme Studio](images/theme-studio-light.png)
+With Studio open, Save and Apply submits the current draft. With Studio closed, it reapplies saved settings. Enable **Render effects in VS Code** in Studio, save, and follow the first-use Reload Window prompt to activate the runtime helper.
 
-**Save Theme** persists and applies the current configuration. **Preview in Workbench** is temporary; **Revert Preview** or closing the customizer restores preceding colors. **Export JSON** writes a standalone theme to your chosen location. **Reset** affects the draft until Save.
+## Edit borders and effects
 
-## Inside VS Code
+![Border controls and the Save and Apply Configuration button](images/theme-studio-borders.png)
 
-This screenshot is the actual extension Webview hosted inside VS Code. The integration check changes the accent to Mint and exercises the Preview/Revert buttons.
+Choose a border color with the picker or hex input, set thickness from 0–4px, and adjust visibility. Turning off **Show borders** keeps the chosen values for later use. Visibility changes preserve thickness.
 
-![Theme Studio inside VS Code](images/theme-studio-vscode.png)
+Other sections control the Base + Accent palette, gradient stops, editor softlight, glass, neon, spring motion, typography and syntax. Drag the header to move the controls; double-click to restore their position. Collapse with the minus button or Escape, then reopen with **Theme**.
 
-Native dark and light workbenches use the default palette and standard layout:
+**Preview in Workbench** is temporary. **Save and Apply Configuration** persists the full configuration. **Export Full Preset** includes visual effects; **Export VS Code Theme JSON** contains native colors and syntax.
 
-![Native dark workbench](images/workbench-dark.png)
+## Recorded interaction demo
 
-![Native light workbench](images/workbench-light.png)
+![Recorded color, hover, press, selection and border interactions in Studio](images/theme-studio-motion-1.5.3.gif)
 
-Modern UI remains optional. Its additional theme tokens keep active fills restrained, but VS Code controls its geometry and can suppress the normal line indicators.
+This 960px-wide GIF records the actual Studio canvas at 12 frames per second. It demonstrates softlight adjustments, hover/press motion and item selection while retaining exactly two gradient stops. The still-image fallback appears in the README. It is a canvas recording; the screenshots below come from the installed extension in VS Code. Reduced-motion preferences disable runtime motion.
 
-![Native Modern UI compatibility preview](images/workbench-modern.png)
+## Explorer and terminal verification
 
-## Responsive controls
+![Midnight Studio gradient and softlight across Explorer, editor and terminal](images/workbench-explorer-terminal.png)
 
-At medium widths the right overlay becomes more compact:
+Release captures use the same Midnight Studio palette: two muted indigo/plum stops and custom lavender softlight. Explorer, editor and terminal share the gradient in Modern UI. The separate regression suite still uses diagnostic colors to detect background blocking; those colors are not published as product previews.
 
-![Medium-width preview](images/theme-studio-medium.png)
+The terminal check compares a blank pixel with its canvas visible and hidden. Matching pixels confirm the renderer is not painting an opaque background over the gradient. Hover, selection and active-tab labels are checked against their rendered backgrounds at a minimum 4.5:1 contrast ratio.
 
-At narrow widths it becomes a bottom sheet. Scroll inside it to access all controls:
+![Workbench using the two-stop release preview configuration](images/workbench-preview.png)
 
-![Narrow preview](images/theme-studio-narrow.png)
+## Reproduce the captures
 
-Collapse with the minus button or Escape; **Theme** reopens the controls:
+The fixture uses VS Code 1.136.1 in `.vscode-test/code`, plus Playwright at `%TEMP%/gradient-nitro-browser-check/node_modules/playwright` or the path supplied through `PLAYWRIGHT_MODULE`. Browser-only captures use installed Microsoft Edge. The application tests install the local VSIX into a separate profile and extensions directory; they verify personal installation file hashes remain unchanged.
 
-![Collapsed controls on a narrow canvas](images/theme-studio-collapsed.png)
+```sh
+npm run test:customizer
+npm run package
+node scripts/check-parity.cjs
+node scripts/check-parity.cjs --release-preview
+node scripts/record-demo.cjs
+node scripts/refresh-previews.cjs
+```
 
-## Reference palette and capture
+The last command requires `ffmpeg` on PATH. It records Chromium screencast frames, uses their timestamps to preserve timing, and produces `theme-studio-motion-1.5.3.gif` plus `theme-studio-borders.png`. No generated animation is substituted for product behavior.
 
-[preview-theme.json](preview-theme.json) contains the current Nitro Aqua reference settings. After editing settings directly, open Theme Studio and Save to regenerate the workbench colors. Existing workspace overrides and explicit file-color/Modern UI choices can change the appearance.
+`node scripts/check-parity.cjs --surfaces-only` runs focused transparency and contrast checks. Full-run screenshots and JSON measurements are stored in `.vscode-test/parity-*`; `.vscode-test/latest-parity.txt` identifies the newest run. See [runtime coverage](runtime-coverage.md) for the verified build and results.
 
-Run `npm run previews:refresh` to execute both checks and publish the resulting screenshots to this directory. This requires the local Playwright tools and installed VS Code 1.136.1 used by the test scripts. Capture compares installation hashes before/after. `scripts/capture-guide.cjs` is now a compatibility entry point for this same workflow.
-
-Older screenshots of gradient effects remain historical repository assets and are excluded from the 1.4.0 package. They do not represent the current customizer.
+`npm run previews:refresh` records the shared release palette and copies only verified release captures, preserving diagnostic images as test artifacts. Build the matching VSIX first, then rebuild it after refreshing media. Historical 1.5.0 implementation notes remain in [theme-studio.md](theme-studio.md); the README and this guide describe the current interface. See the [release guide](release-guide.md) for public image and GIF checks.

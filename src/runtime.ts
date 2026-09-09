@@ -81,7 +81,7 @@ export class RuntimeSession {
         this.heartbeat.unref();
     }
     get marker(): string { return '#01' + this.port.toString(16).padStart(4, '0'); }
-    update(css: string, light: boolean): void { this.payload = JSON.stringify({ active: true, css, light }); this.broadcast(); }
+    update(css: string, light: boolean, visual?: unknown): void { this.payload = JSON.stringify({ active: true, css, light, visual }); this.broadcast(); }
     pause(): void { this.payload = JSON.stringify({ active: false }); this.broadcast(); }
     private broadcast(): void { const data = frame(this.payload); for (const client of this.clients) if (!client.destroyed) client.write(data); }
     async stop(): Promise<void> {

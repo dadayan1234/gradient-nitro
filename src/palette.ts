@@ -1,13 +1,70 @@
-/** Pure, dependency-free module used unchanged by Node and the customizer Webview. */
+export interface GradientColorStop {
+    id: string;
+    color: string;
+    position: number; // 0 to 100
+    opacity: number;  // 0 to 1
+    softness: number; // 0 to 1
+}
 export interface PaletteConfig {
+    borderColor: string; borderWidth: number; borderEnabled: boolean;
+    roundedCorners: boolean; borderRadius: number;
     baseColor: string; accentColor: string; surfaceDepth: number; contrast: number;
     accentIntensity: number; inactiveFade: number; borderVisibility: number;
     activeTabIndicator: 'top' | 'bottom' | 'side'; themeMode: 'dark' | 'light';
+    gradientEnabled: boolean; gradientStrength: number; gradientSoftness: number;
+    editorSoftlight: number; softlightSpread: number; gradientAngle: number;
+    gradientMode: 'auto' | 'custom';
+    gradientStops: GradientColorStop[];
+    softlightEnabled: boolean;
+    softlightSoftness: number;
+    softlightMode: 'auto' | 'accent' | 'custom';
+    softlightColor: string;
+    glassEnabled: boolean;
+    glassBlur: number;
+    glassOpacity: number;
+    glassSaturation: number;
+    neonEnabled: boolean;
+    neonColorMode: 'auto' | 'custom';
+    neonCustomColor: string;
+    neonStrength: number;
+    neonRadius: number;
+    neonOpacity: number;
+    motionEnabled: boolean;
+    motionStrength: number;
+    motionSpring: number;
 }
 export const paletteDefaults: PaletteConfig = {
+    borderColor: '#64748B', borderWidth: 1, borderEnabled: true,
+    roundedCorners: false, borderRadius: 12,
     baseColor: '#120D24', accentColor: '#22D3EE', surfaceDepth: 1, contrast: 1,
     accentIntensity: 1, inactiveFade: 0.5, borderVisibility: 0.5,
-    activeTabIndicator: 'top', themeMode: 'dark'
+    activeTabIndicator: 'top', themeMode: 'dark',
+    gradientEnabled: true, gradientStrength: 0.35, gradientSoftness: 0.80,
+    editorSoftlight: 0.28, softlightSpread: 0.70, gradientAngle: 135,
+    gradientMode: 'auto',
+    gradientStops: [
+        { id: 'stop-1', color: '#2A164D', position: 0, opacity: 0.95, softness: 0.85 },
+        { id: 'stop-2', color: '#582582', position: 32, opacity: 0.85, softness: 0.90 },
+        { id: 'stop-3', color: '#22D3EE', position: 68, opacity: 0.42, softness: 0.92 },
+        { id: 'stop-4', color: '#9333EA', position: 100, opacity: 0.75, softness: 0.88 }
+    ],
+    softlightEnabled: true,
+    softlightSoftness: 0.80,
+    softlightMode: 'auto',
+    softlightColor: '#22D3EE',
+    glassEnabled: true,
+    glassBlur: 16,
+    glassOpacity: 0.82,
+    glassSaturation: 1.05,
+    neonEnabled: true,
+    neonColorMode: 'auto',
+    neonCustomColor: '#22D3EE',
+    neonStrength: 0.30,
+    neonRadius: 14,
+    neonOpacity: 0.24,
+    motionEnabled: true,
+    motionStrength: 0.35,
+    motionSpring: 0.70
 };
 export const presets = [
     { name: 'Nitro Aqua', baseColor: '#120D24', accentColor: '#22D3EE', character: 'Fresh · technical' },
@@ -17,12 +74,64 @@ export const presets = [
     { name: 'Electric Blue', baseColor: '#0F1024', accentColor: '#60A5FA', character: 'Clean · precise' }
 ];
 const clamp = (v: number, min = 0, max = 1) => Math.max(min, Math.min(max, v));
+export function deriveDefaultStops(baseColor: string, accentColor: string, p?: Record<string, string>): GradientColorStop[] {
+    const base = p?.['gradient-base'] || baseColor;
+    const accent = p?.['gradient-accent'] || accentColor;
+    const [al, ac, ah] = toLch(accentColor);
+    const deepViolet = fromLch([clamp(al * 0.48, 0.16, 0.32), Math.min(0.20, ac * 0.95), (ah + Math.PI * 0.88) % (Math.PI * 2)]);
+    const richPurple = fromLch([clamp(al * 0.62, 0.26, 0.44), Math.min(0.24, ac * 1.15), (ah + Math.PI * 0.72) % (Math.PI * 2)]);
+    const richMagenta = fromLch([clamp(al * 0.76, 0.36, 0.62), Math.min(0.26, ac * 1.25), (ah + Math.PI * 0.58) % (Math.PI * 2)]);
+    return [
+        { id: 'stop-1', color: deepViolet, position: 0, opacity: 0.95, softness: 0.85 },
+        { id: 'stop-2', color: richPurple, position: 32, opacity: 0.85, softness: 0.90 },
+        { id: 'stop-3', color: accent, position: 68, opacity: 0.42, softness: 0.92 },
+        { id: 'stop-4', color: richMagenta, position: 100, opacity: 0.75, softness: 0.88 }
+    ];
+}
 export function normalizePalette(input: Partial<PaletteConfig> = {}): PaletteConfig {
     const cfg = { ...paletteDefaults, ...input };
-    for (const key of ['baseColor', 'accentColor'] as const) cfg[key] = typeof cfg[key] === 'string' && /^#[a-f\d]{6}$/i.test(cfg[key]) ? cfg[key].toUpperCase() : paletteDefaults[key];
-    for (const [key, min, max] of [['surfaceDepth', 0, 2], ['contrast', 0.7, 1.3], ['accentIntensity', 0.2, 1.5], ['inactiveFade', 0, 1], ['borderVisibility', 0, 1]] as const) cfg[key] = typeof cfg[key] === 'number' && Number.isFinite(cfg[key]) ? clamp(cfg[key], min, max) : paletteDefaults[key];
+    for (const key of ['baseColor', 'accentColor', 'borderColor', 'softlightColor', 'neonCustomColor'] as const) {
+        cfg[key] = typeof cfg[key] === 'string' && /^#[a-f\d]{6}$/i.test(cfg[key]) ? cfg[key].toUpperCase() : paletteDefaults[key];
+    }
+    for (const [key, min, max] of [
+        ['surfaceDepth', 0, 2], ['contrast', 0.7, 1.3], ['accentIntensity', 0.2, 1.5],
+        ['inactiveFade', 0, 1], ['borderVisibility', 0, 1], ['borderWidth', 0, 4],
+        ['gradientStrength', 0, 1], ['gradientSoftness', 0, 1],
+        ['editorSoftlight', 0, 0.6], ['softlightSpread', 0.2, 1.5], ['gradientAngle', 0, 360],
+        ['glassBlur', 0, 40], ['glassOpacity', 0.1, 1], ['glassSaturation', 0.5, 2.0],
+        ['neonStrength', 0, 1], ['neonRadius', 0, 40], ['neonOpacity', 0, 1],
+        ['motionStrength', 0, 1], ['motionSpring', 0, 1]
+        , ['borderRadius', 0, 24]
+    ] as const) cfg[key] = typeof cfg[key] === 'number' && Number.isFinite(cfg[key]) ? clamp(cfg[key], min, max) : paletteDefaults[key];
+    cfg.softlightSoftness = typeof input.softlightSoftness === 'number' && Number.isFinite(input.softlightSoftness)
+        ? clamp(input.softlightSoftness, 0, 1)
+        : cfg.gradientSoftness;
+    cfg.gradientEnabled = cfg.gradientEnabled !== false;
+    cfg.borderEnabled = cfg.borderEnabled !== false;
+    cfg.softlightEnabled = cfg.softlightEnabled !== false;
+    cfg.glassEnabled = cfg.glassEnabled !== false;
+    cfg.neonEnabled = cfg.neonEnabled !== false;
+    cfg.motionEnabled = cfg.motionEnabled !== false;
+    cfg.roundedCorners = cfg.roundedCorners === true;
     cfg.themeMode = cfg.themeMode === 'light' ? 'light' : 'dark';
     cfg.activeTabIndicator = ['top', 'bottom', 'side'].includes(cfg.activeTabIndicator) ? cfg.activeTabIndicator : 'top';
+    cfg.gradientMode = cfg.gradientMode === 'custom' ? 'custom' : 'auto';
+    cfg.softlightMode = ['auto', 'accent', 'custom'].includes(cfg.softlightMode) ? cfg.softlightMode : 'auto';
+    cfg.neonColorMode = cfg.neonColorMode === 'custom' ? 'custom' : 'auto';
+
+    if (Array.isArray(input.gradientStops) && input.gradientStops.length >= 2) {
+        cfg.gradientStops = input.gradientStops.slice(0, 8).map((stop, i) => ({
+            id: typeof stop?.id === 'string' && stop.id ? stop.id : 'stop-' + (i + 1),
+            color: typeof stop?.color === 'string' && /^#[a-f\d]{6}$/i.test(stop.color) ? stop.color.toUpperCase() : (i === 0 ? cfg.baseColor : cfg.accentColor),
+            position: typeof stop?.position === 'number' && Number.isFinite(stop.position) ? clamp(stop.position, 0, 100) : Math.round((i / (input.gradientStops!.length - 1)) * 100),
+            opacity: typeof stop?.opacity === 'number' && Number.isFinite(stop.opacity) ? clamp(stop.opacity, 0, 1) : 1,
+            softness: typeof stop?.softness === 'number' && Number.isFinite(stop.softness) ? clamp(stop.softness, 0, 1) : cfg.gradientSoftness
+        })).sort((a, b) => a.position - b.position);
+    } else if (cfg.gradientMode === 'auto') {
+        cfg.gradientStops = deriveDefaultStops(cfg.baseColor, cfg.accentColor);
+    } else {
+        cfg.gradientStops = paletteDefaults.gradientStops;
+    }
     return cfg;
 }
 type Lab = [number, number, number];
@@ -94,14 +203,27 @@ export function derivePalette(input: Partial<PaletteConfig>): Record<string, str
     const [il,ic,ih] = toLch(p.accent);
     p['accent-bright'] = fromLch([il+direction*0.09,ic*0.8,ih]);
     p['accent-muted'] = fromLch([il-direction*0.06,ic*0.45,ih]);
-    p['accent-subtle'] = perceptualMix(p['base-2'],p.accent,0.085);
-    p['accent-hover'] = perceptualMix(p['base-2'],p.accent,0.035);
+    p['accent-subtle'] = perceptualMix(p['base-2'],p.accent,0.24);
+    p['accent-hover'] = perceptualMix(p['base-2'],p.accent,0.13);
+    p['interaction-foreground'] = readableIndicator(p['fg-primary'],[p['accent-subtle'],p['accent-hover']],4.5);
     p['accent-border'] = p.accent;
-    p['border-subtle'] = fromLch([l+direction*(0.025+cfg.borderVisibility*0.10),c*0.8,h]);
-    p['border-normal'] = fromLch([l+direction*(0.045+cfg.borderVisibility*0.16),c*0.8,h]);
+    p['border-subtle'] = perceptualMix(p['base-2'], cfg.borderColor, cfg.borderVisibility);
+    p['border-normal'] = perceptualMix(p['base-2'], cfg.borderColor, cfg.borderVisibility);
     p['border-focus'] = p.accent;
     p.selection = p['accent-subtle']; p.hover = p['accent-hover'];
     p.active = p.accent; p.focus = p['border-focus'];
+    p['gradient-base'] = p['base-4'];
+    const [bl, bc, bh] = toLch(p['base-4']);
+    p['gradient-accent'] = fromLch([al, ac * 0.75, ah]);
+    p['gradient-accent-muted'] = perceptualMix(p['base-4'], p.accent, 0.08);
+    const softlightBoost = (light ? 0.05 : 0.075) * cfg.editorSoftlight;
+    const dHue = Math.atan2(Math.sin(ah - bh), Math.cos(ah - bh));
+    p['gradient-softlight'] = fromLch([
+        clamp(bl + direction * softlightBoost, 0.05, 0.94),
+        bc * 0.7 + ac * 0.12,
+        bh + dHue * 0.15
+    ]);
+    p['gradient-edge'] = fromLch([clamp(bl - direction * 0.012, 0.02, 0.98), bc * 0.9, bh]);
     return p;
 }
 /** Explicit semantic role → supported VS Code token mapping. */
@@ -122,11 +244,14 @@ export function workbenchColors(input: Partial<PaletteConfig> & { borderEnabled?
     assign('border-normal', ['editorIndentGuide.activeBackground1','list.focusOutline','list.focusAndSelectionOutline','list.inactiveFocusOutline']);
     assign('accent-hover', ['tab.hoverBackground','tab.unfocusedHoverBackground','list.hoverBackground','toolbar.hoverBackground','statusBarItem.hoverBackground']);
     assign('accent-subtle', ['list.activeSelectionBackground','list.focusBackground','list.inactiveSelectionBackground','list.inactiveFocusBackground','toolbar.activeBackground','inputOption.activeBackground','button.secondaryBackground']);
+    assign('interaction-foreground', ['list.activeSelectionForeground','list.inactiveSelectionForeground','list.focusForeground','list.hoverForeground','menu.selectionForeground','editorSuggestWidget.selectedForeground','tab.hoverForeground','modernTab.hoverForeground','modernTab.activeForeground']);
+    assign('accent-subtle', ['menu.selectionBackground','quickInputList.focusBackground','activityBar.activeBackground','activityBarTop.activeBackground']);
+    assign('interaction-foreground', ['quickInputList.focusForeground']);
     t['editor.selectionBackground'] = perceptualMix(p['base-4'],p.accent,0.16);
     t['editor.inactiveSelectionBackground'] = p.accent+'18';
     t['editor.selectionHighlightBackground'] = p.accent+'12';
     t['editorSuggestWidget.selectedBackground'] = p.selection;
-    for (const token of ['tab.border','tab.hoverBorder','tab.unfocusedHoverBorder','activityBar.activeBackground','activityBarTop.activeBackground','scrollbar.shadow','editorStickyScroll.shadow']) t[token] = transparent;
+    for (const token of ['tab.border','tab.hoverBorder','tab.unfocusedHoverBorder','scrollbar.shadow','editorStickyScroll.shadow']) t[token] = transparent;
     // No supported side-border token exists. Side Line is preview-only; export uses Top Line.
     const bottom = cfg.activeTabIndicator === 'bottom';
     t['tab.activeBorderTop'] = bottom ? transparent : p['accent-border'];
@@ -153,8 +278,8 @@ export function workbenchColors(input: Partial<PaletteConfig> & { borderEnabled?
     assign('accent', ['modernActivityBarItem.activeForeground']);
     assign('border-subtle', ['surface.border','editor.border','modernActivityBar.border']);
     assign('accent-hover', ['modernTab.hoverBackground','modernEditorTab.hoverBackground','modernEditorTab.activeHoverBackground','modernEditorTab.hoverActionBackground','modernEditorTab.activeHoverActionBackground','modernActivityBarItem.hoverBackground']);
-    t['modernTab.activeBackground'] = transparent;
-    t['modernActivityBarItem.activeBackground'] = transparent;
+    t['modernTab.activeBackground'] = p.selection;
+    t['modernActivityBarItem.activeBackground'] = p.selection;
     assign('base-5', ['editorHoverWidget.statusBarBackground','quickInputTitle.background','notificationCenterHeader.background','peekViewTitle.background','keybindingLabel.background']);
     assign('fg-primary', ['editorSuggestWidget.selectedForeground','keybindingLabel.foreground']);
     assign('accent', ['breadcrumb.focusForeground','breadcrumb.activeSelectionForeground','editorWidget.resizeBorder','pickerGroup.foreground']);
@@ -165,7 +290,9 @@ export function workbenchColors(input: Partial<PaletteConfig> & { borderEnabled?
     t['editor.findMatchHighlightBackground'] = p.accent+'20';
     t['editor.lineHighlightBackground'] = p['base-5']+'60';
     t['editor.lineHighlightBorder'] = transparent;
+    assign('interaction-foreground', ['list.activeSelectionForeground','list.inactiveSelectionForeground','list.focusForeground','list.hoverForeground','menu.selectionForeground','quickInputList.focusForeground','editorSuggestWidget.selectedForeground','tab.hoverForeground','tab.unfocusedHoverForeground','modernTab.hoverForeground','modernTab.activeForeground','modernEditorTab.hoverForeground','button.secondaryForeground']);
     if (input.borderEnabled === false || input.borderWidth === 0) {
+        for (const key of ['surface.border','editor.border','modernActivityBar.border','notificationToast.border','keybindingLabel.border','sideBarSectionHeader.border','pickerGroup.border']) t[key] = transparent;
         for (const key of Object.keys(t)) if (/^(sideBar|activityBar|panel|statusBar|titleBar|editorGroup|editorGroupHeader|widget|editorWidget|editorHoverWidget|editorSuggestWidget|input|dropdown|menu|notifications|peekView)\.(border|tabsBorder)$/.test(key)) t[key] = transparent;
     }
     return t;
@@ -182,4 +309,175 @@ export function diagnostics(p: Record<string,string>): Array<{ label: string; va
         { label: 'Borders', value: border < inactive && border < 3 ? 'Subtle' : 'Compete with text', warning: border >= inactive || border >= 3 },
         { label: 'Hover tint', value: toLch(p.hover)[1] <= Math.max(0.08,toLch(p['base-2'])[1]+0.025) ? 'Calm' : 'Too saturated', warning: toLch(p.hover)[1] > Math.max(0.08,toLch(p['base-2'])[1]+0.025) }
     ];
+}
+/** Shared compositing, independent of the composer and syntax palette. */
+export function deriveComposition(input: Partial<PaletteConfig>, p = derivePalette(input)) {
+    const cfg = normalizePalette(input), gradient = deriveGradient(cfg, p);
+    const tint = (role: string, weight: number) => p[role] + Math.round((cfg.gradientEnabled ? cfg.glassOpacity * weight : 1) * 255).toString(16).padStart(2, '0');
+    const r = cfg.roundedCorners ? cfg.borderRadius : 0;
+    const popupTint = (extra: number, weight: number) => p['base-3'] + Math.round((cfg.glassEnabled ? clamp(extra + weight * cfg.glassOpacity, .15, .96) : 1) * 255).toString(16).padStart(2, '0');
+    return {
+        gradient,
+        radius: { small: Math.round(r * .35), medium: Math.round(r * .65), large: r, popup: r },
+        floating: { popup: popupTint(.12, .78), tooltip: popupTint(.12, .85), notification: popupTint(.20, .75), shadow: `0 8px 28px ${p['base-0']}70` },
+        motion: deriveMotion(cfg),
+        surfaces: {
+            titlebar: tint('base-0', .38), activitybar: tint('base-1', .38),
+            sidebar: tint('base-2', .42), panel: tint('base-1', .46),
+            statusbar: tint('base-0', .52), header: tint('base-2', .28),
+            editor: tint('base-4', .48)
+        },
+        neonFilter: cfg.neonEnabled && cfg.neonStrength > 0
+            ? `drop-shadow(0 0 ${cfg.neonRadius}px ${cfg.neonColorMode === 'custom' ? cfg.neonCustomColor : p.accent}${Math.round(cfg.neonOpacity * cfg.neonStrength * 255).toString(16).padStart(2, '0')})` : 'none',
+        hoverScale: cfg.motionEnabled ? gradient.motionScaleHover : 1,
+        pressScale: cfg.motionEnabled ? gradient.motionScaleActive : 1
+    };
+}
+
+export interface GradientStyles {
+    enabled: boolean;
+    editorGradient: string;
+    workbenchGradient: string;
+    panelGradient: string;
+    softlightGradient: string;
+    softlightColor: string;
+    accentColor: string;
+    softness: number;
+    spread: number;
+    colors: Record<string, string>;
+    neonShadow: string;
+    glassFilter: string;
+    glassBackground: string;
+    glassOpacity: number;
+    motionCss: string;
+    motionScaleHover: number;
+    motionScaleActive: number;
+    motionSpringBezier: string;
+}
+export function deriveMotion(input: Partial<PaletteConfig>) {
+    const c = normalizePalette(input), strength = c.motionEnabled ? c.motionStrength : 0;
+    return {
+        hoverScale: Number((1 + .035 * strength).toFixed(4)),
+        pressScale: Number((1 - .035 * strength).toFixed(4)),
+        lift: Number((.6 * strength).toFixed(3)),
+        duration: c.motionEnabled ? Math.round(160 + 180 * c.motionSpring) : 0,
+        easing: `cubic-bezier(0.22, ${(1 + .65 * c.motionSpring).toFixed(3)}, 0.36, 1)`
+    };
+}
+export function deriveGradient(input: Partial<PaletteConfig>, p = derivePalette(input)): GradientStyles {
+    const cfg = normalizePalette(input);
+    const light = cfg.themeMode === 'light';
+    const [sl, sc, sh] = toLch(p['gradient-softlight']);
+    // Auto illumination must lift the composited atmosphere, rather than tint it darker.
+    const autoSoftlight = fromLch([light ? sl : Math.max(.48, sl), sc, sh]);
+    const softColor = cfg.softlightMode === 'accent' ? p.accent : cfg.softlightMode === 'custom' ? cfg.softlightColor : autoSoftlight;
+    const colors = {
+        'gradient-base': p['gradient-base'],
+        'gradient-accent': p['gradient-accent'],
+        'gradient-accent-muted': p['gradient-accent-muted'],
+        'gradient-softlight': softColor,
+        'gradient-edge': p['gradient-edge']
+    };
+
+    const neonColor = cfg.neonColorMode === 'custom' ? cfg.neonCustomColor : p.accent;
+    const a1 = Math.round(clamp(cfg.neonOpacity * cfg.neonStrength * 1.2, 0, 1) * 255).toString(16).padStart(2, '0');
+    const a2 = Math.round(clamp(cfg.neonOpacity * cfg.neonStrength * 0.65, 0, 1) * 255).toString(16).padStart(2, '0');
+    const a3 = Math.round(clamp(cfg.neonOpacity * cfg.neonStrength * 0.35, 0, 1) * 255).toString(16).padStart(2, '0');
+    const r = cfg.neonRadius;
+    const neonShadow = cfg.neonEnabled && cfg.neonStrength > 0
+        ? `0 0 2px ${neonColor}${a1}, 0 0 ${Math.round(r * 0.5)}px ${neonColor}${a2}, 0 4px ${r}px ${neonColor}${a3}`
+        : 'none';
+
+    const glassBase = light ? '#f5f2fa' : '#14101e';
+    const glassBackground = glassBase + Math.round(clamp(cfg.glassOpacity, 0.1, 1) * 255).toString(16).padStart(2, '0');
+    const glassFilter = cfg.glassEnabled ? `blur(${cfg.glassBlur}px) saturate(${Math.round(cfg.glassSaturation * 100)}%)` : 'none';
+
+    const motion = deriveMotion(cfg);
+    const motionScaleHover = motion.hoverScale;
+    const motionScaleActive = motion.pressScale;
+    const motionSpringBezier = motion.easing;
+    const motionCss = cfg.motionEnabled ? `transition: transform ${motion.duration}ms ${motionSpringBezier};` : 'none';
+
+
+    // Build multi-stop ambient linear gradient with softness interpolation
+    const renderedStops: string[] = [];
+    const stops = cfg.gradientStops;
+    for (let i = 0; i < stops.length; i++) {
+        const cur = stops[i];
+        const curAlpha = Math.round(clamp(cur.opacity * (light ? 0.75 : 1) * cfg.gradientStrength * 2, 0, 1) * 255).toString(16).padStart(2, '0');
+        renderedStops.push(`${cur.color}${curAlpha} ${cur.position}%`);
+        if (i < stops.length - 1) {
+            const next = stops[i + 1];
+            const blendSoft = clamp((cfg.gradientSoftness * 0.6 + (cur.softness + next.softness) * 0.2), 0, 1);
+            // Continuously widen each transition around its midpoint. Unlike the previous
+            // threshold, every global/per-stop softness value changes the spatial falloff.
+            const center = (cur.position + next.position) / 2;
+            const halfWidth = (next.position - cur.position) * (.025 + .475 * blendSoft);
+            const nextAlpha = Math.round(clamp(next.opacity * (light ? .75 : 1) * cfg.gradientStrength * 2, 0, 1) * 255).toString(16).padStart(2, '0');
+            const midColor = perceptualMix(cur.color, next.color, .5);
+            const midAlpha = Math.round(clamp((cur.opacity + next.opacity) * (light ? .75 : 1) * cfg.gradientStrength, 0, 1) * 255).toString(16).padStart(2, '0');
+            renderedStops.push(`${cur.color}${curAlpha} ${(center-halfWidth).toFixed(2)}%`, `${midColor}${midAlpha} ${center}%`, `${next.color}${nextAlpha} ${(center+halfWidth).toFixed(2)}%`);
+        }
+    }
+    const ambient = `linear-gradient(${cfg.gradientAngle}deg, ${renderedStops.join(', ')})`;
+
+    // Broad atmospheric lighting follows the actual composer stops, including opacity.
+    // The stop interpolation above remains the single composer algorithm.
+    const first = stops[0], second = stops[Math.min(1, stops.length - 1)], last = stops[stops.length - 1];
+    const cool = stops.reduce((a, b) => Math.abs(a.position - 68) < Math.abs(b.position - 68) ? a : b);
+    const lift = (color: string, level: number) => { const [, c, h] = toLch(color); return fromLch([light ? .86 : level, c, h]); };
+    const richMagenta = lift(perceptualMix(second.color, last.color, .4), .50);
+    const titleAtmosphereAlpha = Math.round(clamp(cfg.gradientStrength * (light ? 0.38 : 0.80) * second.opacity, 0, 1) * 255).toString(16).padStart(2, '0');
+
+    // 2. Deep rich violet across sidebar and left activity bar
+    const richViolet = lift(first.color, .43);
+    const sidebarAtmosphereAlpha = Math.round(clamp(cfg.gradientStrength * (light ? 0.35 : 0.75) * first.opacity, 0, 1) * 255).toString(16).padStart(2, '0');
+
+    // 3. Subtle cyan field across editor right
+    const cyanAtmosphereAlpha = Math.round(clamp(cfg.gradientStrength * (light ? 0.22 : 0.42) * cool.opacity, 0, 1) * 255).toString(16).padStart(2, '0');
+
+    // 4. Deep purple / plum atmosphere across bottom panel
+    const plumPurple = lift(last.color, .40);
+    const panelAtmosphereAlpha = Math.round(clamp(cfg.gradientStrength * (light ? 0.32 : 0.72) * last.opacity, 0, 1) * 255).toString(16).padStart(2, '0');
+
+    const atmosphere = `radial-gradient(135% 120% at 35% 0%, ${richMagenta}${titleAtmosphereAlpha} 0%, transparent 72%), ` +
+      `radial-gradient(110% 120% at 0% 45%, ${richViolet}${sidebarAtmosphereAlpha} 0%, transparent 68%), ` +
+      `radial-gradient(120% 90% at 80% 45%, ${cool.color}${cyanAtmosphereAlpha} 0%, transparent 65%), ` +
+      `radial-gradient(130% 100% at 50% 100%, ${plumPurple}${panelAtmosphereAlpha} 0%, transparent 70%), ` +
+      `${ambient}`;
+
+    // Editor-centered softlight radial gradient
+    const s = clamp(cfg.gradientSoftness * 0.5 + cfg.softlightSoftness * 0.5, 0, 1);
+    const coreStop = Math.round(15 + 20 * s);
+    const midStop = Math.round(35 + 28 * s);
+    const outerStop = Math.round(65 + 35 * s);
+    const softAlpha = Math.round(clamp(cfg.editorSoftlight * (light ? 0.55 : 0.85), 0, 1) * 255).toString(16).padStart(2, '0');
+    const midAlpha = Math.round(clamp(cfg.editorSoftlight * (light ? 0.28 : 0.42), 0, 1) * 255).toString(16).padStart(2, '0');
+    const edgeAlpha = Math.round(clamp(cfg.editorSoftlight * (light ? 0.08 : 0.12), 0, 1) * 255).toString(16).padStart(2, '0');
+    const rx = Math.round(75 * cfg.softlightSpread);
+    const ry = Math.round(65 * cfg.softlightSpread);
+    const radial = `radial-gradient(${rx}% ${ry}% at 50% 42%, ${softColor}${softAlpha} 0%, ${softColor}${midAlpha} ${coreStop}%, ${p['gradient-base']}${edgeAlpha} ${midStop}%, transparent ${outerStop}%)`;
+
+    const mutedAlpha = Math.round(clamp(cfg.gradientStrength * (light ? 0.06 : 0.10), 0, 1) * 255).toString(16).padStart(2, '0');
+
+    return {
+        enabled: cfg.gradientEnabled,
+        editorGradient: cfg.gradientEnabled ? (cfg.softlightEnabled ? `${radial}, ${ambient}` : ambient) : 'none',
+        workbenchGradient: cfg.gradientEnabled ? atmosphere : 'none',
+        panelGradient: cfg.gradientEnabled ? `linear-gradient(${cfg.gradientAngle}deg, ${p['gradient-accent-muted']}${mutedAlpha} 0%, transparent 65%)` : 'none',
+        softlightGradient: cfg.softlightEnabled ? radial : 'none',
+        softlightColor: softColor,
+        accentColor: p['gradient-accent'],
+        softness: cfg.gradientSoftness,
+        spread: cfg.softlightSpread,
+        colors,
+        neonShadow,
+        glassFilter,
+        glassBackground,
+        glassOpacity: cfg.glassOpacity,
+        motionCss,
+        motionScaleHover,
+        motionScaleActive,
+        motionSpringBezier
+    };
 }

@@ -3,18 +3,19 @@
 src/**
 tsconfig.json
 *.vsix
+*.sha256
 .gitignore
 scripts/**
 tests/**
 examples/**
-media/workbench-runtime.js
-out/runtime.*
-out/effects.*
 out/legacy.*
 
 # Historical effects screenshots are not current product previews.
 docs/images/**
 !docs/images/theme-studio*.png
+!docs/images/theme-studio-motion-1.5.3.gif
 !docs/images/workbench-dark.png
 !docs/images/workbench-light.png
 !docs/images/workbench-modern.png
+!docs/images/workbench-preview.png
+!docs/images/workbench-explorer-terminal.png

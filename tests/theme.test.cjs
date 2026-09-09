@@ -98,12 +98,12 @@ test('legacy recovery removes only Nitro blocks, backs up and updates matching c
 
 test('native rounded layout restores user preference on deactivation and respects workspace settings', async () => {
   const h = harness();
-  await h.extension.applyCustomTheme({ ...h.extension.getDefaultConfig(), roundedCorners: true });
+  await h.extension.applyCustomTheme({ ...h.extension.getDefaultConfig(), nativeModernUI: true });
   assert.equal(h.global['workbench.experimental.modernUI'], true);
   await h.extension.deactivate();
   assert.equal(h.global['workbench.experimental.modernUI'], undefined);
   h.workspace['workbench.experimental.modernUI'] = false;
-  await h.extension.applyCustomTheme({ ...h.extension.getDefaultConfig(), roundedCorners: true });
+  await h.extension.applyCustomTheme({ ...h.extension.getDefaultConfig(), nativeModernUI: true });
   assert.equal(h.global['workbench.experimental.modernUI'], undefined);
 });
 

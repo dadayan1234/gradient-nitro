@@ -1,4 +1,44 @@
-# Theme Studio 1.4.0 implementation report
+# Theme Studio 1.5.0 implementation report
+
+This report records the 1.5.0 implementation. For the current 1.5.2 interface, side-menu access, Save and Apply workflow and animation, see the [preview guide](preview-guide.md). The [runtime coverage report](runtime-coverage.md) includes the subsequent Explorer/terminal transparency and interaction-contrast fixes.
+
+## Corrective compositing pass — VS Code 1.136.1
+
+The previous renderer mixed the composer gradient with editor softlight. A partial global fix then painted the same field on both the root and its pseudo-element, while `.part.editor > .content` remained opaque. That masked the field below code and produced mismatched slabs. Computed background properties alone did not expose the masked pixels.
+
+`src/effects.ts` now paints the atmosphere exactly once on the session-scoped `.monaco-workbench::before`: fixed inset zero, pointer events disabled, negative stack level inside an isolated workbench. The root supplies the dark base. This uses the full viewport, independent of sidebars, panel height and editor splits. The `.part.editor` background contains only radial softlight. No editor group owns a copy of the global gradient.
+
+`deriveComposition` extends the existing pure palette module without replacing its OKLCH engine or stop composer. Both renderers consume its gradient, tint colors, neon filter and motion scales. Atmospheric lighting takes its hues and opacity from composer stops; Auto softlight uses a lifted version of the existing light role so it illuminates rather than darkens the composited center.
+
+| Surface | Tint role | Alpha at saved default opacity 0.70 |
+| --- | --- | --- |
+| Title Bar | base-0 | 0.266 |
+| Activity Bar | base-1 | 0.266 |
+| Primary / secondary sidebar | base-2 | 0.294 |
+| Editor | base-4 | 0.336 |
+| Panel | base-1 | 0.322 |
+| Status Bar | base-0 | 0.364 |
+| Headers above their parent surface | base-2 | 0.196 |
+
+Blur and saturation apply to the main chrome surfaces. Editor content stays sharp. Disabling glass removes blur while keeping the independent gradient visible; disabling the gradient restores opaque surface colors. Only verified background masks are cleared: outer editor content, editor layout wrappers, main Monaco backgrounds/margins, tree/terminal wrappers and centered-layout margins. Sticky scroll, suggest, peek, selections, diagnostics, cursor and code retain their own rendering.
+
+Structural outlines and neon box shadows were removed from editor/panel/sidebar regions. Structural focus and resize separators use derived neutral borders. Tabs retain native top/bottom indicators without filled rectangles; neon is confined to the thin indicator, active Activity Bar icon and small focus signals. There is no global accent shadow override.
+
+The Theme Studio canvas uses the equivalent single backdrop beneath tinted regions and a radial background on its editor group. Angle, stops, opacity, softness, glass, softlight, custom neon and motion come from the same compiled module. Controls, logo, composer, presets, grouped history, save/export and recovery remain in place. Disabled motion now produces identity scales in the canvas too.
+
+`Control → state → derivePalette / deriveComposition → CSS variables → preview`
+
+`Save → normalized state → workbenchColors + deriveComposition → saved color overrides + opted-in runtime CSS`
+
+`Export → normalized state → palette → VS Code tokens → theme JSON` (CSS effects are not representable in theme JSON).
+
+Preview/Revert uses the existing color ownership journal. If runtime effects are already enabled, Apply Preview also updates the live session and Revert restores the saved composition. Draft controls never install the helper or communicate with the host. The explicit runtime flag now survives normalization and Save; draft Reset preserves that opt-in choice.
+
+Verification for this pass: **41 automated tests passed**, including five new compositing tests. Browser interaction checks passed with no host messages during draft editing; palette/token calculation measured approximately **0.14ms** per update on this machine. The real extension bridge passed on **VS Code 1.136.1**, with **205 token IDs** checked. The driver uses the isolated `.vscode-test/code` application copy and verifies that the personal installation hashes are unchanged. It does not inject capture-only CSS.
+
+Full-window screenshots were visually reviewed for all nine runtime scenarios: sidebar+panel open, sidebar only, panel only, neither, two editor groups, secondary sidebar, Zen Mode, 1120×800 window, and vertical panel resize. The review caught and corrected opaque Zen margins and the cyan resize sash. Main captures are [real workbench](images/workbench-preview.png) and [Theme Studio](images/theme-studio.png), using the same default composition. The panel-size and editor-size differences change only local softlight bounds, not the global field.
+
+The optional runtime remains outside the supported color-theme API and requires the existing installation helper. An integrity notification was observed in the isolated modified distribution during QA; no integrity-check bypass was added. Standard JSON themes remain supported. This pass changes compositing rather than the helper transport or VS Code's layout engine.
 
 ## Repository architecture discovered
 
@@ -14,7 +54,7 @@
 
 The extension entry, theme contributions, syntax system, configuration persistence and build toolchain are retained. The Webview markup/styles/client code are extracted into `media/customizer.html`, `.css` and `.js`, with the host builder in `src/customizer.ts`. A pure `src/palette.ts` replaces duplicated workbench calculations. Both environments execute the identical compiled module; there is no copied browser color algorithm or new production dependency.
 
-The active extension no longer imports or executes the effects runtime or legacy installation migration. Historical source modules remain in the repository for reference but their compiled artifacts and bridge are excluded from VSIX packages. The existing settings-only cleanup command remains.
+In v1.5.0, the essential gradient and editor softlight features accidentally omitted in previous refactoring have been fully restored and integrated into the shared OKLCH visual engine. Runtime styling is encapsulated in `src/workbenchRuntime.ts` with failure-safe recovery journaling (`workbenchRuntimeJournal`), while standard theme generation uses native tokens.
 
 ## Palette architecture and derivation
 
@@ -47,6 +87,27 @@ Default generated examples:
 | accent-hover | `#1A1830` |
 | border-subtle | `#232033` |
 | border-normal | `#2F2C40` |
+
+## Gradient & Editor Softlight Engine (Restored in v1.5.0)
+
+Gradient is treated as an integral component of the perceptual visual engine, participating directly in the shared OKLCH palette derivation:
+- `gradient-base`: Matches `base-4` (editor background surface).
+- `gradient-accent`: Derived from ACCENT with tailored chroma (75%) to maintain calm ambiance.
+- `gradient-accent-muted`: Perceptual OKLab interpolation between `base-4` and ACCENT (8% tint).
+- `gradient-softlight`: Derived from BASE with perceptual lightness elevation (`+0.075 * editorSoftlight` in dark mode, `+0.05 * editorSoftlight` in light mode) and subtle chromatic influence from ACCENT.
+- `gradient-edge`: Slightly deeper than BASE to frame the illumination.
+
+### Spatial Falloff & Stop Distribution (Gradient Softness)
+Gradient Softness controls the spatial falloff and mathematical stop distribution rather than merely altering opacity:
+- **Core stop**: `Math.round(15 + 20 * softness)%`
+- **Mid stop**: `Math.round(35 + 28 * softness)%`
+- **Outer stop**: `Math.round(65 + 35 * softness)%`
+
+Low softness produces tighter falloff, medium produces balanced distribution, and high softness yields a diffuse, broad ambient glow with zero visible contour edges.
+
+### Focal Hierarchy Isolation
+- **Editor Content Area**: Receives the central elliptical softlight (`radial-gradient(...)`) combined with the ambient directional linear gradient.
+- **Sidebar, Activity Bar, Title Bar**: Maintain solid, opaque backgrounds (`base-1`, `base-2`, `base-0`), preventing glow bleed into chrome and keeping the visual focus squarely on the code editing region.
 
 Syntax remains independent: default theme token JSON is preserved exactly, workbench Save does not write syntax settings, and only an explicit syntax override uses the existing syntax generator. The Webview also uses the existing syntax module for optional syntax adjustments; it never derives syntax from BASE or ACCENT.
 
@@ -121,7 +182,7 @@ Only Save, Export, Apply Preview and Revert send messages to the extension host.
 - Modern UI has registered additional color tokens but can suppress standard line indicators and compute inactive text internally. The default standard layout reproduces the requested grammar. Modern UI remains optional; no CSS patches restore its hidden indicators.
 - Classic Activity Bar hover has no independent foreground token. Modern UI's registered hover foreground token is mapped where available.
 - Third-party file/SCM decorations and workspace overrides may supersede theme foregrounds. Nitro file-family colors are opt-in.
-- Previously patched installation files are not repaired by this extension. The runtime is no longer loaded or packaged; installing a clean VS Code distribution is outside this change.
+- The optional 1.5.0 runtime is packaged and retains its backup/install/remove workflow. Effects beyond color tokens use that helper; standard theme JSON cannot encode gradients, blur or animation.
 
 ## Verification
 
@@ -141,22 +202,22 @@ Artifacts are written to `.vscode-test/theme-studio/`. Current representative sc
 | `src/customizer.ts` | Extracted Webview builder with CSP and shared compiled palette/syntax modules |
 | `media/customizer.html`, `media/customizer.css`, `media/customizer.js` | Live canvas, overlay, state/history, interaction and local rendering |
 | `src/workbenchPreview.ts` | New reversible configuration preview and recovery journal |
-| `src/extension.ts` | Integrates shared colors, Webview and host actions; preserves Save ownership; disconnects patching |
+| `src/extension.ts` | Shared colors, host actions and ownership; preserves explicit runtime opt-in and coordinates live Preview/Revert |
 | `src/files.ts` | File-family label decoration is opt-in |
 | `themes/gradient-nitro-theme.json`, `themes/gradient-nitro-light-theme.json` | Regenerated workbench colors; syntax fields unchanged |
 | `package.json` | Palette settings, native-layout/file-color defaults, deprecated legacy effects and test scripts |
-| `.vscodeignore` | Excludes retired runtime bridge and compiled patch modules |
+| `.vscodeignore` | Packages the runtime and current full-window screenshots; excludes test artifacts |
 | `scripts/generate-themes.cjs` | Shared workbench generation without rewriting syntax |
 | `scripts/check-customizer.cjs` | Browser interaction, parity, responsiveness and no-host-message checks |
-| `scripts/check-vscode.cjs`, `tests/vscode-runner.cjs` | Tests the installed target in an isolated profile without installation changes |
+| `scripts/check-vscode.cjs`, `tests/vscode-runner.cjs` | Tests the actual bridge in an isolated application copy across nine runtime layouts |
 | `tests/palette.test.cjs`, `tests/theme.test.cjs` | New palette/recovery tests and updated customizer/layout assertions |
 | `README.md`, `CHANGELOG.md`, `docs/theme-studio.md` | Usage, migration, implementation and compatibility documentation |
 | `docs/images/theme-studio.png`, `docs/images/theme-studio-light.png` | Current desktop canvas screenshots |
 
 Reference: [VS Code theme color API](https://code.visualstudio.com/api/references/theme-color). Native layout behavior and additional Modern UI token registration were verified directly against the installed 1.136.1 workbench, without changing it.
 
-## 1.4.0 build and preview update
+## 1.5.0 build and preview update
 
-The package and lockfile identify this build as 1.4.0. The README includes local VSIX installation steps and the current dark/light/native/responsive gallery. `docs/preview-theme.json` now uses Base + Accent settings, with no legacy gradient or runtime configuration. See [preview guide](preview-guide.md) for all current screenshots.
+The package and lockfile identify this build as 1.5.0. The README includes local VSIX installation steps and the current runtime/native/responsive gallery. `docs/preview-theme.json` includes the default global gradient and glass settings. See [preview guide](preview-guide.md) for capture details.
 
 `scripts/refresh-previews.cjs` copies verified screenshots into the documented gallery; `npm run previews:refresh` runs capture checks first. The old `scripts/capture-guide.cjs` now forwards to this supported workflow. Historical effect screenshots remain in the repository but are excluded from packages.

@@ -1,3 +1,4 @@
+if(process.argv.includes('--parity')) { require('./check-parity.cjs'); return; }
 const fs=require('fs'),path=require('path'),assert=require('assert/strict'),crypto=require('crypto');
 const {_electron}=require(process.env.PLAYWRIGHT_MODULE||path.join(process.env.TEMP,'gradient-nitro-browser-check/node_modules/playwright'));
 const root=path.resolve(__dirname,'..'),testRoot=path.join(root,'.vscode-test'),output=path.join(testRoot,'theme-studio'),control=path.join(testRoot,'capture.json');
@@ -14,12 +15,16 @@ const hashes=()=>protectedFiles.map(file=>crypto.createHash('sha256').update(fs.
 const before=hashes();
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 (async()=>{
+ const cloneRoot=path.join(testRoot,'code',versionDir,'resources/app');
+ assert.equal(JSON.parse(fs.readFileSync(path.join(cloneRoot,'package.json'))).version,version);
+ await require('../out/runtime').installRuntime(cloneRoot,root,path.join(testRoot,'runtime-backups'),true);
  fs.mkdirSync(output,{recursive:true});const profile=path.join(testRoot,'studio-profile-'+Date.now());fs.mkdirSync(path.join(profile,'User'),{recursive:true});
  fs.writeFileSync(path.join(profile,'User/settings.json'),JSON.stringify({'workbench.colorTheme':'Default Dark Modern','workbench.startupEditor':'none','window.titleBarStyle':'custom','telemetry.telemetryLevel':'off','update.mode':'none','extensions.autoUpdate':false,'security.workspace.trust.enabled':false,'chat.disableAIFeatures':true,'git.enabled':false,'editor.fontFamily':'Consolas','editor.fontSize':14,'editor.lineHeight':24,'workbench.secondarySideBar.defaultVisibility':'hidden'}));
  fs.writeFileSync(control,JSON.stringify({phase:'starting'}));
- const app=await _electron.launch({executablePath:path.join(source,'Code.exe'),args:['--user-data-dir='+profile,'--extensions-dir='+path.join(testRoot,'extensions'),'--extensionDevelopmentPath='+root,'--extensionTestsPath='+path.join(root,'tests/vscode-runner.cjs'),'--skip-welcome','--skip-release-notes','--disable-workspace-trust','--new-window',path.join(root,'examples')],timeout:60000});
+ const app=await _electron.launch({executablePath:path.join(testRoot,'code/Code.exe'),args:['--user-data-dir='+profile,'--extensions-dir='+path.join(testRoot,'extensions'),'--extensionDevelopmentPath='+root,'--extensionTestsPath='+path.join(root,'tests/vscode-runner.cjs'),'--skip-welcome','--skip-release-notes','--disable-workspace-trust','--new-window',path.join(root,'examples')],timeout:60000});
  try{
   const page=await app.firstWindow({timeout:60000});await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1440,1000));
+
   for(let i=0;i<180;i++){
    const state=JSON.parse(fs.readFileSync(control));
    if(state.phase==='failed')throw new Error(state.error);
@@ -40,10 +45,40 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
      await studio.locator('#expandControls').click();
      await studio.locator('#previewWorkbench').click();
      await studio.locator('#actionStatus').filter({hasText:'Temporary workbench preview applied'}).waitFor();
+     await page.waitForFunction(()=>document.getElementById('gradient-nitro-live')?.textContent.includes('#2DD4BF'));
      await studio.locator('#revertPreview').click();
      await studio.locator('#actionStatus').filter({hasText:'Workbench preview reverted'}).waitFor();
+     await page.waitForFunction(()=>document.getElementById('gradient-nitro-live')?.textContent.includes('color: #22D3EE'));
+    }else if(state.phase.startsWith('workbench-')){
+     if(state.phase==='workbench-resize')await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1120,800));
+     if(state.phase==='workbench-panel-resize'){
+       await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1440,1000));
+       const panel=await page.locator('.part.panel').boundingBox();
+       await page.mouse.move(panel.x+panel.width/2,panel.y-2);await page.mouse.down();await page.mouse.move(panel.x+panel.width/2,panel.y-130,{steps:12});await page.mouse.up();
+     }
+     await sleep(350);
+     await page.waitForSelector('.monaco-workbench[data-gradient-nitro="active"]');
+     const metrics=await page.evaluate(()=>{
+       const wb=document.querySelector('.monaco-workbench');
+       const field=getComputedStyle(wb,'::before');
+       const chain=[];let el=document.querySelector('.part.editor .view-lines');
+       while(el){const s=getComputedStyle(el);chain.push({node:el.className,bg:s.backgroundColor,img:s.backgroundImage.slice(0,60),z:s.zIndex});el=el.parentElement;}
+       return {field:field.backgroundImage,position:field.position,chain,
+         editor:getComputedStyle(document.querySelector('.part.editor')).backgroundImage,
+         viewport:[innerWidth,innerHeight], surfaces:[...document.querySelectorAll('.part')].map(el=>({node:el.className,bg:getComputedStyle(el).backgroundColor,bounds:el.getBoundingClientRect().toJSON()}))};
+     });
+     assert.ok(metrics.field.includes('linear-gradient'),'Runtime bridge paints global field');
+     assert.equal(metrics.position,'fixed');
+     assert.ok(metrics.editor.includes('radial-gradient'),'Only radial light belongs to editor');
+     assert.ok(!metrics.editor.includes('linear-gradient'));
+     assert.ok(!metrics.chain.slice(0,metrics.chain.findIndex(el=>el.node==='part editor')).some(el=>/^rgb\(/.test(el.bg)),'No opaque main editor ancestor masks the backdrop');
+     fs.writeFileSync(path.join(output,state.phase+'.json'),JSON.stringify(metrics,null,2));
+     console.log(state.phase,'runtime bridge active');
     }else{
-     const actual=await page.evaluate(()=>{const wb=document.querySelector('.monaco-workbench');const style=getComputedStyle(wb);return {base:style.getPropertyValue('--vscode-editor-background').trim(),active:style.getPropertyValue('--vscode-tab-activeBackground').trim(),header:style.getPropertyValue('--vscode-editorGroupHeader-tabsBackground').trim(),indicator:style.getPropertyValue('--vscode-tab-activeBorderTop').trim(),runtime:!!document.getElementById('gradient-nitro-live')};});
+     const actual=await page.evaluate(()=>{
+
+       const wb=document.querySelector('.monaco-workbench');const style=getComputedStyle(wb);return {base:style.getPropertyValue('--vscode-editor-background').trim(),active:style.getPropertyValue('--vscode-tab-activeBackground').trim(),header:style.getPropertyValue('--vscode-editorGroupHeader-tabsBackground').trim(),indicator:style.getPropertyValue('--vscode-tab-activeBorderTop').trim(),runtime:!!document.getElementById('gradient-nitro-live')};
+     });
      assert.equal(actual.active,actual.header,'Active tab merges with header');assert.equal(actual.runtime,false,'No injected style element');console.log(state.phase,actual);
     }
     await page.screenshot({path:path.join(output,state.phase+'.png')});fs.writeFileSync(control,JSON.stringify({...state,done:state.phase}));
