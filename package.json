@@ -733,7 +733,7 @@
     "vscode:prepublish": "npm run themes:generate",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "package": "vsce package --baseContentUrl https://github.com/dadayan1234/gradient-nitro/blob/main/ --baseImagesUrl https://raw.githubusercontent.com/dadayan1234/gradient-nitro/main/",
+    "package": "vsce package --out release/ --baseContentUrl https://github.com/dadayan1234/gradient-nitro/blob/main/ --baseImagesUrl https://raw.githubusercontent.com/dadayan1234/gradient-nitro/main/",
     "test": "npm run compile && node --test tests/theme.test.cjs tests/palette.test.cjs tests/gradient.test.cjs tests/parity.test.cjs",
     "themes:generate": "npm run compile && node scripts/generate-themes.cjs",
     "test:customizer": "npm run compile && node scripts/check-customizer.cjs",

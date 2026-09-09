@@ -57,7 +57,10 @@ while offset < len(data):
     offset += 1
 assert frames > 10 and duration >= 3000, 'Expected a playable animation'
 
-artifact = root / f"{package['name']}-{version}.vsix"
+artifact = root / 'release' / f"{package['name']}-{version}.vsix"
+if not artifact.exists():
+    artifact = root / f"{package['name']}-{version}.vsix"
+assert artifact.exists(), f"VSIX artifact not found: {artifact}"
 with zipfile.ZipFile(artifact) as archive:
     assert archive.testzip() is None
     packaged = json.loads(archive.read('extension/package.json'))

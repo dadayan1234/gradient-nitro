@@ -4,7 +4,7 @@
 
 Build a workspace with one continuous gradient across the editor, Explorer, terminal and surrounding panels. Theme Studio combines Base + Accent colors, glass, softlight, adjustable borders and responsive interaction effects in a live preview.
 
-[Marketplace](https://marketplace.visualstudio.com/items?itemName=dadayan1234.gradient-nitro-glass) · [Issues](https://github.com/dadayan1234/gradient-nitro/issues) · [Changelog](CHANGELOG.md)
+[Marketplace](https://marketplace.visualstudio.com/items?itemName=dadayan1234.gradient-nitro-glass) · [Releases & VSIX](docs/release-versions.md) · [Changelog](CHANGELOG.md) · [Issues](https://github.com/dadayan1234/gradient-nitro/issues)
 
 ## See it in motion
 
@@ -21,7 +21,7 @@ This GIF records the Studio canvas: softlight adjustments, hover/press transitio
 ## Install and open the side menu
 
 1. Open the Command Palette (`Ctrl+Shift+P` on Windows/Linux, `Cmd+Shift+P` on macOS).
-2. Run **Extensions: Install from VSIX…** and select `gradient-nitro-glass-1.5.3.vsix` from this repository. Reload VS Code if requested.
+2. Run **Extensions: Install from VSIX…** and select `release/gradient-nitro-glass-1.5.3.vsix` from this repository or the downloaded file from GitHub Releases. Reload VS Code if requested.
 3. Run **Preferences: Color Theme** and choose **Gradient Nitro Glass** or **Gradient Nitro Glass Light**.
 4. Click the **Gradient Nitro** icon in the Activity Bar, beside Explorer, Search and Source Control. This opens the **Theme Studio** side menu.
 5. Click **Open Theme Studio** in that menu to open the full editor preview.
@@ -31,10 +31,10 @@ If the icon is hidden, right-click the Activity Bar and enable **Gradient Nitro*
 For installation from a terminal:
 
 ```sh
-code --install-extension gradient-nitro-glass-1.5.3.vsix
+code --install-extension release/gradient-nitro-glass-1.5.3.vsix
 ```
 
-Upgrading retains saved configuration. You do not need to reset your theme.
+Upgrading retains saved configuration. You do not need to reset your theme. To download `.vsix` packages for current or previous versions directly from GitHub Releases, see the [Release Versions & Feature Log](docs/release-versions.md) table.
 
 ## Configure, save and apply
 
@@ -96,6 +96,19 @@ Runtime rounding is independent of **Use native Modern UI layout**. Native Moder
 Standard themes use VS Code's color API. Optional runtime effects install a helper into workbench HTML with backups. VS Code updates may require reinstalling that helper and reloading; integrity notifications can occur. No separate custom-CSS extension is needed. Native operating-system dialogs keep their platform appearance; renderer glass applies to VS Code custom dialogs.
 
 The tested desktop version is **1.136.1**. The extension engine range remains `^1.129.0`; older versions may ignore newer color tokens. Third-party webviews and terminal applications that explicitly paint their own background colors control those surfaces themselves.
+
+## Release versions and GitHub VSIX downloads
+
+All current and past `.vsix` release packages can be downloaded directly from [GitHub Releases](https://github.com/dadayan1234/gradient-nitro/releases) or found locally inside the [`release/`](release/) folder. See the complete [Release Versions & Feature Log](docs/release-versions.md) for full changelogs, VS Code compatibility, and SHA-256 verification hashes.
+
+| Version | Date | Target | Direct VSIX Download | Local Package | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **v1.5.3** | 2026-09-09 | `^1.129.0` (Tested 1.136.1) | [Download v1.5.3 VSIX](https://github.com/dadayan1234/gradient-nitro/releases/download/v1.5.3/gradient-nitro-glass-1.5.3.vsix) | `release/gradient-nitro-glass-1.5.3.vsix` | **Latest Stable** |
+| **v1.5.2** | 2026-09-09 | `^1.129.0` (Tested 1.136.1) | [Download v1.5.2 VSIX](https://github.com/dadayan1234/gradient-nitro/releases/download/v1.5.2/gradient-nitro-glass-1.5.2.vsix) | `release/gradient-nitro-glass-1.5.2.vsix` | Stable |
+| **v1.5.1** | 2026-09-09 | `^1.129.0` (Tested 1.136.1) | [Download v1.5.1 VSIX](https://github.com/dadayan1234/gradient-nitro/releases/download/v1.5.1/gradient-nitro-glass-1.5.1.vsix) | `release/gradient-nitro-glass-1.5.1.vsix` | Stable |
+| **v1.5.0** | 2026-09-08 | `^1.129.0` (Tested 1.136.1) | [Download v1.5.0 VSIX](https://github.com/dadayan1234/gradient-nitro/releases/download/v1.5.0/gradient-nitro-glass-1.5.0.vsix) | `release/gradient-nitro-glass-1.5.0.vsix` | Stable |
+
+👉 **[View all 19 releases and detailed feature log in docs/release-versions.md](docs/release-versions.md)** · **[Explore local release/ directory](release/README.md)**
 
 ## Development and verification
 

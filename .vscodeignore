@@ -4,6 +4,7 @@ src/**
 tsconfig.json
 *.vsix
 *.sha256
+release/**
 .gitignore
 scripts/**
 tests/**

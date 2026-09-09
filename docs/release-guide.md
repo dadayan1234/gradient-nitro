@@ -13,7 +13,7 @@ node scripts/check-parity.cjs
 npm run release:check
 ```
 
-`release:check` uses Python's standard library. It checks package/lockfile versions, the two-stop preview preset, GIF structure/frame timing/looping, packaged README HTTPS image URLs, bundled asset bytes and source/build parity. It writes `gradient-nitro-glass-1.5.3.vsix.sha256` next to the VSIX.
+`release:check` uses Python's standard library. It checks package/lockfile versions, the two-stop preview preset, GIF structure/frame timing/looping, packaged README HTTPS image URLs, bundled asset bytes and source/build parity. It writes `gradient-nitro-glass-1.5.3.vsix.sha256` next to the VSIX inside `release/`.
 
 The installed-extension suite tests desktop VS Code 1.136.1 on Windows in an isolated application copy. Other VS Code versions and platforms have not been verified by this release run.
 
@@ -45,7 +45,7 @@ Before uploading:
 
 1. Commit and push the release files, including `docs/images`, README and the importable preset, to the repository's public `main` branch.
 2. Run `npm run release:media`. Every public README image must return image content identical to its local release file. Missing or stale assets fail this check.
-3. Run `npm run release:check` again and upload the checked `gradient-nitro-glass-1.5.3.vsix` through the Marketplace publisher page.
+3. Run `npm run release:check` again and upload the checked `release/gradient-nitro-glass-1.5.3.vsix` through the Marketplace publisher page.
 4. After publishing, open the Store page and test the inline GIF and its direct link. A local browser animation test cannot establish that a hosted Store page will autoplay in every viewer.
 
 Do not upload while `release:media` reports missing or stale files. Preparing the local build does not push repository files or publish the extension.
