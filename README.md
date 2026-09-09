@@ -1,4 +1,4 @@
-# Gradient Nitro Glass
+# Gradient Nitro Glass!
 
 **Version 1.5.3 · Tested on desktop VS Code 1.136.1**
 
