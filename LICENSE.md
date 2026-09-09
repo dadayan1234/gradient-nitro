@@ -1,21 +1,22 @@
-MIT License
+PolyForm Noncommercial License 1.0.0
+<https://polyformproject.org/licenses/noncommercial/1.0.0/>
 
-Copyright (c) 2026 dadayan1234
+Copyright (c) 2026 [Dian Prasetya]
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. Purpose
+This license allows you to run, copy, modify, and contribute to this software for noncommercial purposes only.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+2. Agreement
+In order to receive this license, you must agree to its rules. The rules of this license are both obligations under your agreement and conditions to your license. You must not do anything with this software that triggers a rule that you cannot or will not follow.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+3. Noncommercial Purposes
+You may use this software only for noncommercial purposes. Noncommercial purposes are purposes that are not intended for commercial advantage or monetary compensation.
+
+4. Notices
+You must ensure that everyone who gets a copy of any part of this software from you, with or without changes, also receives the copyright notice and the terms of this license.
+
+5. No Other Rights
+This license does not grant any patent rights, trademark rights, or any other rights not explicitly granted herein.
+
+6. No Warranty
+The software is provided "as is", without warranty of any kind, express or implied.
