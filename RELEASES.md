@@ -7,7 +7,14 @@ Untuk tabel riwayat versi rilis lengkap, log fitur per versi, dan panduan instal
 
 ---
 
-## Rilis Terbaru (Latest Stable Release)
+## Build 1.6.0 (2026-09-10)
+
+- Paket lokal: `release/gradient-nitro-glass-1.6.0.vsix` dan checksum `.vsix.sha256`.
+- Memperbaiki popup menu/submenu setelah profil diterapkan, termasuk struktur menu Antigravity.
+- Lisensi distribusi: **PolyForm Noncommercial License 1.0.0**. CLA tetap mengatur kontribusi secara terpisah.
+- Upload versi baru diperlukan agar metadata lisensi terbaru di Open VSX berubah.
+
+## Rilis sebelumnya: terakhir dengan MIT
 
 ### [v1.5.3](https://github.com/dadayan1234/gradient-nitro/releases/tag/v1.5.3) (2026-09-09)
 - **Paket VSIX Publik**: [Download gradient-nitro-glass-1.5.3.vsix](https://github.com/dadayan1234/gradient-nitro/releases/download/v1.5.3/gradient-nitro-glass-1.5.3.vsix)

@@ -20,3 +20,8 @@ docs/images/**
 !docs/images/workbench-modern.png
 !docs/images/workbench-preview.png
 !docs/images/workbench-explorer-terminal.png
+
+# Agent and CI instructions are development-only.
+.agents/**
+.github/**
+AGENTS.md

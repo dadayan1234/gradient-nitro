@@ -99,8 +99,13 @@ ${root}::before {
 ${surfaces.map(s => `${root} .part.${s} {
   background-color: ${c.surfaces[(s === 'auxiliarybar' ? 'sidebar' : s) as keyof typeof c.surfaces]} !important;
   background-image: none !important;
-  ${s === 'editor' ? '' : `backdrop-filter: ${g.glassFilter} !important;`}
+  ${s === 'editor' ? '' : 'backdrop-filter: none !important;'}
 }`).join('\n')}
+/* Blur the paint layer, not the containing block of fixed menu/dropdown children. */
+${scope(surfaces.filter(s => s !== 'editor').map(s => '.part.' + s + '::before'))} {
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  backdrop-filter: ${g.glassFilter} !important; pointer-events: none; z-index: -1;
+}
 ${scope(clear)} { background: transparent !important; }
 ${scope(['.editor-group-container > .title', '.composite.title', '.pane-header', '.part.sidebar .pane > .pane-header', '.part.auxiliarybar .pane > .pane-header'])} {
   background: ${c.surfaces.header} !important;
@@ -152,6 +157,15 @@ ${Object.entries(registry.floating).map(([kind, selectors]) => `${scope([...sele
 }`).join('\n')}
 ${scope(floats.map(shell => `${shell} :is(${registry.popupContent.join(',')})`))} {
   background-color: transparent !important;
+}
+/* Legacy menus contain fixed submenus. Clipping or filtering the shell traps them. */
+${scope(['.monaco-menu'])} {
+  position: relative; overflow: visible !important;
+  backdrop-filter: none !important; isolation: isolate;
+}
+${scope(['.monaco-menu::before'])} {
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  backdrop-filter: var(--gn-glass-filter); pointer-events: none; z-index: -1;
 }
 ${scope([...registry.interactive])} { border-radius: var(--gn-radius-small) !important; }
 ${scope(['.monaco-inputbox', '.monaco-select-box', '.command-center .command-center-center'])} {

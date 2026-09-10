@@ -5,7 +5,9 @@ const {PNG}=require(path.join(process.env.TEMP,'gradient-nitro-browser-check/nod
 const root=path.resolve(__dirname,'..'),testRoot=path.join(root,'.vscode-test');
 const packageVersion=require('../package.json').version;
 const output=path.join(testRoot,'parity-'+Date.now()),control=path.join(output,'control.json');
-const clone=path.join(testRoot,'code'),versionDir=fs.readdirSync(clone).find(d=>fs.existsSync(path.join(clone,d,'resources/app/package.json'))),appRoot=path.join(clone,versionDir,'resources/app');
+const antigravity=process.argv.includes('--antigravity');
+const clone=path.join(testRoot,antigravity?'antigravity':'code'),versionDir=antigravity?'':fs.readdirSync(clone).find(d=>fs.existsSync(path.join(clone,d,'resources/app/package.json'))),appRoot=path.join(clone,versionDir,'resources/app');
+const executable=path.join(clone,antigravity?'Antigravity IDE.exe':'Code.exe');
 const personalRoot=path.join(process.env.LOCALAPPDATA,'Programs/Microsoft VS Code');
 const personalVersion=fs.readdirSync(personalRoot).find(d=>fs.existsSync(path.join(personalRoot,d,'resources/app/product.json')));
 const installedRoot=path.join(personalRoot,personalVersion,'resources/app');
@@ -17,13 +19,21 @@ const surfaces={quick:'.quick-input-widget',menu:'.monaco-menu','activity-hover'
  fs.writeFileSync(path.join(output,'workspace/main.ts'),`import { createApplication } from './config';\n\n// Gradient Nitro â€” runtime parity fixture\nconst settings = { port: 8000, debug: false };\nconst app = createApplication("sesa-pilot", settings.port);\n\napp.\napp.start();\n\nconsole.log("Application ready", settings);\n`);
  fs.writeFileSync(path.join(output,'workspace/config.ts'),`/** Create a service with its own lifecycle. */\nexport function createApplication(name: string, port: number) {\n    return { name, port, start() { return Promise.resolve(); } };\n}\n`);
  const profile=path.join(output,'profile'),extensions=path.join(output,'extensions');
+ if(antigravity){
+  // Fresh offline UI fixture: skip account onboarding without copying any personal state.
+  const {DatabaseSync}=require('node:sqlite');
+  fs.mkdirSync(path.join(profile,'User/globalStorage'),{recursive:true});
+  const db=new DatabaseSync(path.join(profile,'User/globalStorage/state.vscdb'));
+  db.exec('CREATE TABLE IF NOT EXISTS ItemTable (key TEXT UNIQUE ON CONFLICT REPLACE, value BLOB)');
+  db.prepare('INSERT INTO ItemTable VALUES (?, ?)').run('antigravityOnboarding','true');db.close();
+ }
  fs.writeFileSync(path.join(profile,'User/settings.json'),JSON.stringify({'window.titleBarStyle':'custom','window.dialogStyle':'custom','window.menuBarVisibility':'classic','workbench.startupEditor':'none','workbench.colorTheme':'Default Dark Modern','security.workspace.trust.enabled':false,'telemetry.telemetryLevel':'off','update.mode':'none','extensions.autoUpdate':false,'chat.disableAIFeatures':true,'editor.hover.delay':150,'workbench.hover.delay':150,'editor.quickSuggestions':false,'editor.fontSize':14,'editor.lineHeight':25,'editor.minimap.enabled':true,'git.enabled':false}));
- const cli=cp.spawnSync(path.join(clone,'Code.exe'),[path.join(appRoot,'out/cli.js'),'--user-data-dir='+profile,'--extensions-dir='+extensions,'--install-extension',path.join(root,'gradient-nitro-glass-'+packageVersion+'.vsix'),'--force'],{env:{...process.env,ELECTRON_RUN_AS_NODE:'1'},encoding:'utf8',windowsHide:true,timeout:60000});
+ const cli=cp.spawnSync(executable,[path.join(appRoot,'out/cli.js'),'--user-data-dir='+profile,'--extensions-dir='+extensions,'--install-extension',path.join(root,'release','gradient-nitro-glass-'+packageVersion+'.vsix'),'--force'],{env:{...process.env,ELECTRON_RUN_AS_NODE:'1'},encoding:'utf8',windowsHide:true,timeout:60000});
  assert.equal(cli.status,0,cli.stderr||cli.stdout);
  const target=path.join(extensions,'dadayan1234.gradient-nitro-glass-'+packageVersion);assert.ok(fs.existsSync(path.join(target,'out/config.js')),'Latest packaged canonical configuration present');
  await require('../out/runtime').installRuntime(appRoot,target,path.join(output,'backups'),true);
  const qa=path.join(extensions,'local.nitro-parity-1.0.0');fs.mkdirSync(qa,{recursive:true});
- fs.writeFileSync(path.join(qa,'package.json'),JSON.stringify({name:'nitro-parity',publisher:'local',version:'1.0.0',engines:{vscode:'^1.136.0'},main:'index.js',activationEvents:['onStartupFinished']}));
+ fs.writeFileSync(path.join(qa,'package.json'),JSON.stringify({name:'nitro-parity',publisher:'local',version:'1.0.0',engines:{vscode:'^1.80.0'},main:'index.js',activationEvents:['onStartupFinished']}));
  fs.writeFileSync(path.join(qa,'index.js'),`exports.activate=()=>{setTimeout(()=>require(${JSON.stringify(path.join(root,'tests/parity-runner.cjs'))}).run(require('vscode'),${JSON.stringify(root)},${JSON.stringify(output)}, {surfacesOnly: ${process.argv.includes('--surfaces-only')}, releasePreview: ${process.argv.includes('--release-preview')}}),1800);};`);
  const extensionIndex=path.join(extensions,'extensions.json'),entries=JSON.parse(fs.readFileSync(extensionIndex));
  entries.push({identifier:{id:'local.nitro-parity'},version:'1.0.0',location:{$mid:1,scheme:'file',path:'/'+qa.replaceAll('\\','/')},relativeLocation:path.basename(qa)});
@@ -31,8 +41,8 @@ const surfaces={quick:'.quick-input-widget',menu:'.monaco-menu','activity-hover'
  fs.writeFileSync(control,JSON.stringify({phase:'starting'}));
  fs.writeFileSync(path.join(testRoot,'latest-parity.txt'),output);
  if(process.argv.includes('--release-preview'))fs.writeFileSync(path.join(testRoot,'latest-release-preview.txt'),output);
- const app=await _electron.launch({executablePath:path.join(clone,'Code.exe'),args:['--user-data-dir='+profile,'--extensions-dir='+extensions,'--skip-welcome','--skip-release-notes','--disable-workspace-trust','--new-window',path.join(output,'workspace')],timeout:60000});
- const results={version:'1.136.1',installedVSIX:true,surfaces:{},phases:[],failures:[]};
+ const app=await _electron.launch({executablePath:executable,args:['--user-data-dir='+profile,'--extensions-dir='+extensions,'--skip-welcome','--skip-release-notes','--disable-workspace-trust','--new-window',path.join(output,'workspace')],timeout:60000});
+ const results={version:require(path.join(appRoot,'package.json')).version,installedVSIX:true,surfaces:{},menus:[],phases:[],failures:[]};
  try{
   const page=await app.firstWindow({timeout:90000});await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1440,1000));
   for(let i=0;i<2400;i++){
@@ -40,6 +50,13 @@ const surfaces={quick:'.quick-input-widget',menu:'.monaco-menu','activity-hover'
    if(state.phase==='complete'){fs.writeFileSync(path.join(output,'results.json'),JSON.stringify(results,null,2));assert.deepEqual(results.failures,[]);console.log('Packaged VSIX parity passed:',results.phases.length,'phases;',Object.keys(results.surfaces).length,'surface captures.',output);return;}
    if(state.phase==='starting'||state.done){await sleep(250);continue;}
    await sleep(400);const phase=state.phase;
+   if(antigravity && ['studio-save','parity-reloaded'].includes(phase)){
+    const setupDialog=page.locator('.monaco-dialog-box').filter({visible:true});
+    if(await setupDialog.count()){
+     console.log('Offline fixture startup dialog:',await setupDialog.innerText());
+     await setupDialog.getByRole('button',{name:'Cancel',exact:true}).click();await sleep(500);
+    }
+   }
    if(phase==='before-reload'){fs.writeFileSync(control,JSON.stringify({...state,done:phase}));await sleep(1500);continue;}
    await page.waitForFunction(()=>!!window.__gradientNitroVisualConfig,{},{timeout:20000});
    if(state.expected){
@@ -111,6 +128,37 @@ const surfaces={quick:'.quick-input-widget',menu:'.monaco-menu','activity-hover'
     fs.writeFileSync(path.join(output,phase+'.json'),JSON.stringify(metrics,null,2));
     results.surfaces[phase]={hover:metrics.hover,selected:metrics.selected,tab:metrics.tab,terminalTransparent:true};
    }
+   if(phase.startsWith('layers-')){
+    for(const name of ['File','Edit','Selection','View','Go','Run','Terminal','Help']){
+     await page.getByRole('menuitem',{name,exact:true}).first().click();
+     await sleep(300); // Native menubars briefly ignore mouse-up after opening.
+     const menu=page.locator('.monaco-menu').filter({visible:true}).last();
+     await menu.waitFor({state:'visible',timeout:5000});
+     await page.screenshot({path:path.join(output,phase+'-menubar-'+name+'.png')});
+     const item=menu.locator('.action-item:not(.disabled) > .action-menu-item').first();
+     await item.click({trial:true,timeout:3000});
+     const submenu=menu.locator('.action-item:not(.disabled) > .action-menu-item[aria-haspopup="true"]').first();
+     const hasSubmenu=!!await submenu.count();
+     if(hasSubmenu){
+      await submenu.click();await sleep(600);
+      const child=page.locator('.monaco-menu').filter({visible:true}).last();
+      assert.ok(await page.locator('.monaco-menu').filter({visible:true}).count()>1,'Submenu opened: '+name);
+      await child.locator('.action-item:not(.disabled) > .action-menu-item').first().click({trial:true,timeout:3000});
+      await page.screenshot({path:path.join(output,phase+'-submenu-'+name+'.png')});
+      await page.keyboard.press('Escape');
+     }
+     await page.keyboard.press('Escape');
+     results.menus.push({phase,name,submenu:hasSubmenu,pointerAccess:true});
+    }
+    await page.getByRole('menuitem',{name:'File',exact:true}).first().click();
+    await sleep(300);
+    await page.locator('.monaco-menu').filter({visible:true}).last().getByText('New Text File',{exact:true}).click();
+    await page.locator('.part.editor .tab.active').filter({hasText:/untitled/i}).waitFor({timeout:10000}).catch(async error=>{
+     console.log('Editor after New Text File:',await page.locator('.part.editor').innerText());
+     await page.screenshot({path:path.join(output,phase+'-new-file-failed.png')});throw error;
+    });
+    await page.keyboard.press('Control+w');
+   }
    if(state.surface==='menu')await page.locator('.part.editor .view-lines').first().click({button:'right',position:{x:250,y:100}});
    if(state.surface==='activity-hover')await page.locator('.part.activitybar .action-item').first().hover();
    if(state.surface==='toolbar-hover')await page.locator('.editor-group-container .title .monaco-toolbar .action-item').first().hover();
@@ -123,7 +171,8 @@ const surfaces={quick:'.quick-input-widget',menu:'.monaco-menu','activity-hover'
     assert.equal(metrics.radius,state.expected.borderRadius+'px','Popup radius '+phase);
     assert.equal(await popup.evaluate(el=>getComputedStyle(el).borderTopWidth),(state.expected.borderEnabled ? state.expected.borderWidth : 0)+'px','Popup border thickness '+phase);
     if(phase.startsWith('border-')&&state.expected.borderEnabled&&state.expected.borderWidth)assert.equal(await popup.evaluate(el=>getComputedStyle(el).borderTopColor),'rgb(232, 121, 249)');
-    assert.ok(metrics.blur.includes('blur('+state.expected.glassBlur+'px)'),JSON.stringify(metrics));
+    const paintBlur=await popup.evaluate(el=>getComputedStyle(el,'::before').backdropFilter);
+    assert.ok((metrics.blur+' '+paintBlur).includes('blur('+state.expected.glassBlur+'px)'),JSON.stringify(metrics));
     assert.match(metrics.background,/rgba\(/,'Translucent '+phase);assert.notEqual(metrics.shadow,'none');
     }catch(error){results.failures.push({phase,error:error.message});}
     results.surfaces[phase]=metrics;

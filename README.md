@@ -2,7 +2,7 @@
 
 # Gradient Nitro Glass
 
-**Version 1.5.3 · Tested on desktop VS Code 1.136.1 & Google Antigravity IDE**
+**Version 1.6.0 · Tested on desktop VS Code 1.136.1 & Google Antigravity IDE**
 
 Build a workspace with one continuous gradient across the editor, Explorer, terminal and surrounding panels. Theme Studio combines Base + Accent colors, glass, softlight, adjustable borders and responsive interaction effects in a live preview.
 
@@ -23,7 +23,7 @@ This GIF records the Studio canvas: softlight adjustments, hover/press transitio
 ## Install and open the side menu
 
 1. Open the Command Palette (`Ctrl+Shift+P` on Windows/Linux, `Cmd+Shift+P` on macOS).
-2. Run **Extensions: Install from VSIX…** and select `release/gradient-nitro-glass-1.5.3.vsix` from this repository or the downloaded file from GitHub Releases. Reload VS Code if requested.
+2. Run **Extensions: Install from VSIX…** and select `release/gradient-nitro-glass-1.6.0.vsix` from this repository or the downloaded file from GitHub Releases. Reload VS Code if requested.
 3. Run **Preferences: Color Theme** and choose **Gradient Nitro Glass** or **Gradient Nitro Glass Light**.
 4. Click the **Gradient Nitro** icon in the Activity Bar, beside Explorer, Search and Source Control. This opens the **Theme Studio** side menu.
 5. Click **Open Theme Studio** in that menu to open the full editor preview.
@@ -33,7 +33,7 @@ If the icon is hidden, right-click the Activity Bar and enable **Gradient Nitro*
 For installation from a terminal:
 
 ```sh
-code --install-extension release/gradient-nitro-glass-1.5.3.vsix
+code --install-extension release/gradient-nitro-glass-1.6.0.vsix
 ```
 
 Upgrading retains saved configuration. You do not need to reset your theme. To download `.vsix` packages for current or previous versions directly from GitHub Releases, see the [Release Versions & Feature Log](docs/release-versions.md) table.
@@ -87,6 +87,18 @@ Temporary preview reverts when Studio closes, on deactivation, or during recover
 
 The separate **Gradient Nitro: Reset to Default Settings** and **Clean All Injected Settings & Styles** commands use the settings recovery workflow and switch to Default Dark Modern.
 
+## License
+
+Versions **1.6.0 and later** use [PolyForm Noncommercial License 1.0.0](LICENSE.md), with package identifier `PolyForm-Noncommercial-1.0.0`. Versions through **1.5.3 remain MIT**; see the [license transition notice](RE-LICENSING.md). The [Contributor License Grant](CONTRIBUTING.md) covers contributions separately.
+
+Open VSX reads the license from the published extension package. Publish the new 1.6.0 VSIX to update the latest listing; an existing 1.5.3 listing retains its original MIT metadata.
+
+## Menus after applying a profile
+
+File, Edit, Selection, View, Go, Run, Terminal and Help menus retain their popup positioning when runtime effects are active. Blur is painted on a separate layer so nested menus can extend beyond the titlebar and menu bounds. Dropdown controls keep stable coordinates while opening; other controls retain hover and press motion.
+
+After installing 1.6.0, open Theme Studio and choose **Save and Apply Configuration** with **Render effects in VS Code** enabled, then use **Reload Window** when prompted. This refreshes the helper already loaded by VS Code or Antigravity as well as the saved profile's effects.
+
 ## Real workbench and compatibility
 
 ![Real VS Code workbench with Gradient Nitro runtime effects](docs/images/workbench-preview.png)
@@ -105,7 +117,8 @@ All current and past `.vsix` release packages can be downloaded directly from [G
 
 | Version | Date | Target | Direct VSIX Download | Local Package | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **v1.5.3** | 2026-09-09 | `^1.80.0` (Tested 1.107.0 - 1.136.1) | [Download v1.5.3 VSIX](https://github.com/dadayan1234/gradient-nitro/releases/download/v1.5.3/gradient-nitro-glass-1.5.3.vsix) | `release/gradient-nitro-glass-1.5.3.vsix` | **Latest Stable** |
+| **v1.6.0** | 2026-09-10 | `^1.80.0` | [GitHub Releases](https://github.com/dadayan1234/gradient-nitro/releases) | `release/gradient-nitro-glass-1.6.0.vsix` | Stable build (not yet published) |
+| **v1.5.3** | 2026-09-09 | `^1.80.0` (Tested 1.107.0 - 1.136.1) | [Download v1.5.3 VSIX](https://github.com/dadayan1234/gradient-nitro/releases/download/v1.5.3/gradient-nitro-glass-1.5.3.vsix) | `release/gradient-nitro-glass-1.5.3.vsix` | Last MIT release |
 | **v1.5.2** | 2026-09-09 | `^1.80.0` (Tested 1.107.0 - 1.136.1) | [Download v1.5.2 VSIX](https://github.com/dadayan1234/gradient-nitro/releases/download/v1.5.2/gradient-nitro-glass-1.5.2.vsix) | `release/gradient-nitro-glass-1.5.2.vsix` | Stable |
 | **v1.5.1** | 2026-09-09 | `^1.80.0` (Tested 1.107.0 - 1.136.1) | [Download v1.5.1 VSIX](https://github.com/dadayan1234/gradient-nitro/releases/download/v1.5.1/gradient-nitro-glass-1.5.1.vsix) | `release/gradient-nitro-glass-1.5.1.vsix` | Stable |
 | **v1.5.0** | 2026-09-08 | `^1.80.0` (Tested 1.107.0 - 1.136.1) | [Download v1.5.0 VSIX](https://github.com/dadayan1234/gradient-nitro/releases/download/v1.5.0/gradient-nitro-glass-1.5.0.vsix) | `release/gradient-nitro-glass-1.5.0.vsix` | Stable |
@@ -123,7 +136,7 @@ npm run package
 node scripts/check-parity.cjs
 ```
 
-The packaged integration suite uses an isolated VS Code application copy and profile. It checks Save/reload, Explorer and terminal transparency, hover/selection text contrast, floating surfaces, border widths and side-menu actions. Personal VS Code installation hashes are checked before and after the run.
+The packaged integration suite uses an isolated VS Code application copy and profile. It checks Save/reload, Explorer and terminal transparency, hover/selection text contrast, floating surfaces, menubar/submenu pointer access, border widths and side-menu actions. Personal VS Code installation hashes are checked before and after the run.
 
 `node scripts/check-parity.cjs --surfaces-only` runs the focused layer/contrast checks. `node scripts/record-demo.cjs` records the documentation GIF using Playwright and a local `ffmpeg` executable. These scripts require the local browser-test and isolated VS Code fixtures described in [the preview guide](docs/preview-guide.md).
 

@@ -12,7 +12,9 @@
         if (!style || !root) return;
         const scope = '.monaco-workbench[data-gradient-nitro="active"]'.repeat(4);
         const css = style.textContent;
-        const variables = css.slice(css.indexOf(scope), css.indexOf('}') + 1);
+        // Share tokens only: the workbench background/isolation do not belong on popup hosts.
+        const declarations = css.slice(css.indexOf('{') + 1, css.indexOf('}'));
+        const variables = scope + ' {' + declarations.split('\n').filter(line => line.trim().startsWith('--')).join('\n') + '\n}';
         const floating = css.slice(css.indexOf('/* FLOATING SURFACE REGISTRY:'));
         const menuCSS = (variables + '\n' + floating).replaceAll(scope, ':host') +
             '\n:host .monaco-menu-container > .monaco-scrollable-element { background: transparent !important; }';

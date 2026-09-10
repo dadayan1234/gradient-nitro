@@ -10,7 +10,7 @@
 
 ## 1. Ringkasan Perubahan
 
-Mulai dari versi berikutnya setelah `v1.5.3` (September 2026), proyek **Gradient Nitro Glass** beralih dari lisensi **MIT License** ke lisensi **PolyForm Noncommercial 1.0.0** (atau *Business Source License 1.1* sesuai rilis resmi).
+Mulai dari versi berikutnya setelah `v1.5.3` (September 2026), proyek **Gradient Nitro Glass** beralih dari lisensi **MIT License** ke lisensi **PolyForm Noncommercial 1.0.0**.
 
 Perubahan ini dilakukan secara sadar untuk melindungi integritas desain, arsitektur *workbench runtime*, serta investasi waktu dan karya kreatif pengembang independen dari eksploitasi komersial tanpa izin, sembari tetap menjaga kode sumber terbuka untuk dipelajari, digunakan secara pribadi, dan dikontribusikan oleh komunitas developer.
 
@@ -21,7 +21,7 @@ Perubahan ini dilakukan secara sadar untuk melindungi integritas desain, arsitek
 Kami menghormati sepenuhnya ekosistem *open-source* dan ketentuan hukum hak cipta:
 
 > [!IMPORTANT]
-> **Seluruh versi dan commit yang dirilis hingga tag `v1.5.3` (termasuk kode sumber dan paket biner yang dirilis sebelum September 2026) TETAP berada di bawah lisensi [MIT License](LICENSE.md).**
+> **Seluruh versi dan commit yang dirilis hingga tag `v1.5.3` TETAP berada di bawah lisensi [MIT License](https://github.com/dadayan1234/gradient-nitro/tree/v1.5.3).**
 
 Ketentuan lisensi MIT bersifat permanen (*irrevocable*) untuk commit dan rilis tersebut. Siapa pun yang menggunakan kode sumber dari tag `v1.5.3` atau sebelumnya tetap memiliki hak penuh sesuai ketentuan lisensi MIT (bebas menggunakan, memodifikasi, dan mendistribusikan).
 

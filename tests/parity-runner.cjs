@@ -4,7 +4,7 @@ exports.run=async(vscode,root,output,options={})=>{
  const control=path.join(output,'control.json'),stage=path.join(output,'stage.json');
  const capture=async(phase,extra={})=>{fs.writeFileSync(control,JSON.stringify({phase,...extra}));for(let i=0;i<180;i++){await sleep(250);try{if(JSON.parse(fs.readFileSync(control)).done===phase)return;}catch{}}throw Error('Capture timeout '+phase);};
  try{
-  assert.equal(vscode.version,'1.136.1');
+  assert.ok(['1.136.1','1.107.0'].includes(vscode.version), 'Supported isolated test fixture');
   const extension=vscode.extensions.getExtension('dadayan1234.gradient-nitro-glass');await extension.activate();
   const modulePath=path.join(extension.extensionPath,'out/extension.js').toLowerCase();
   const cached=Object.keys(require.cache).find(key=>key.toLowerCase()===modulePath);
@@ -23,7 +23,9 @@ exports.run=async(vscode,root,output,options={})=>{
   const diagnostic=new vscode.Diagnostic(new vscode.Range(7,0,7,10),'Example diagnostic: application readiness should be checked.',vscode.DiagnosticSeverity.Warning);
   const diagnostics=vscode.languages.createDiagnosticCollection('nitro-qa');diagnostics.set(main,[diagnostic]);
   vscode.languages.registerCodeActionsProvider('typescript',{provideCodeActions(){const action=new vscode.CodeAction('Inspect application readiness',vscode.CodeActionKind.QuickFix);action.command={command:'editor.action.showHover',title:'Inspect readiness'};return[action];}});
-  if(!fs.existsSync(stage)){
+  const legacyMenuCheck=options.surfacesOnly && vscode.version==='1.107.0';
+  if(legacyMenuCheck)await api.applyCustomTheme(distinctive);
+  if(!fs.existsSync(stage) && !legacyMenuCheck){
    await api.applyCustomTheme(distinctive);await sleep(1600);
    await vscode.commands.executeCommand('notifications.clearAll');
    await vscode.commands.executeCommand('gradientNitro.openCustomizer');await capture('studio-save',{expected:distinctive});

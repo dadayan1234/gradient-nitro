@@ -6,6 +6,7 @@ import re
 import struct
 import urllib.request
 import zipfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 root = Path(__file__).resolve().parent.parent
@@ -23,7 +24,8 @@ assert preview['softlightEnabled'] and preview['editorSoftlight'] > 0
 preset = json.loads((root / 'docs/midnight-studio.gradient-nitro.json').read_text())
 assert preset['visual']['gradientStops'] == preview['gradientStops']
 
-gif = root / f'docs/images/theme-studio-motion-{version}.gif'
+gif_relative = re.search(r'!\[[^\]]*\]\((docs/images/[^)]+\.gif)\)', (root / 'README.md').read_text(encoding='utf-8')).group(1)
+gif = root / gif_relative
 data = gif.read_bytes()
 assert data[:6] in (b'GIF87a', b'GIF89a')
 width, height = struct.unpack_from('<HH', data, 6)
@@ -58,13 +60,18 @@ while offset < len(data):
 assert frames > 10 and duration >= 3000, 'Expected a playable animation'
 
 artifact = root / 'release' / f"{package['name']}-{version}.vsix"
-if not artifact.exists():
-    artifact = root / f"{package['name']}-{version}.vsix"
 assert artifact.exists(), f"VSIX artifact not found: {artifact}"
 with zipfile.ZipFile(artifact) as archive:
     assert archive.testzip() is None
     packaged = json.loads(archive.read('extension/package.json'))
     assert packaged['version'] == version
+    assert packaged['license'] == package['license'] == lock['packages']['']['license'] == 'PolyForm-Noncommercial-1.0.0'
+    license_text = (root / 'LICENSE.md').read_bytes()
+    assert license_text == (root / 'LICENSE').read_bytes()
+    assert archive.read('extension/LICENSE.md') == license_text
+    manifest = ET.fromstring(archive.read('extension.vsixmanifest'))
+    assets = [a for a in manifest.iter() if a.attrib.get('Type') == 'Microsoft.VisualStudio.Services.Content.License']
+    assert len(assets) == 1 and archive.read(assets[0].attrib['Path']) == license_text, 'Store license asset must contain PolyForm terms'
     assert b'IsPreReleaseVersion' not in archive.read('extension.vsixmanifest')
     readme = archive.read('extension/README.md').decode('utf-8')
     urls = re.findall(r'!\[[^\]]*\]\(([^)]+)\)', readme)

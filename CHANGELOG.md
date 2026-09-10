@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0] - 2026-09-10
+
+- Set package and store license metadata to PolyForm-Noncommercial-1.0.0 and include the complete license text. Releases through 1.5.3 retain MIT.
+- Move structural/menu blur to noninteractive paint layers so fixed menu popups and nested submenus retain viewport positioning.
+- Keep menu and dropdown owners free of motion transforms, and stop applying workbench backgrounds to shadow menu hosts.
+- Extend installed-package checks to menubar/submenu pointer access and an isolated Antigravity fixture. Validate the store license asset during release checks.
+
 ## [1.5.3] - 2026-09-09
 
 - Prepared stable release previews with two custom midnight-indigo/plum stops and broad lavender softlight; added an importable Midnight Studio preset.

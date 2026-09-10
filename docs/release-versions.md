@@ -11,7 +11,8 @@ Dokumen ini menyajikan riwayat lengkap versi rilis **Gradient Nitro Glass**, log
 
 | Versi | Tanggal Rilis | Target VS Code | Fitur Utama & Ringkasan Perubahan | Download VSIX (GitHub) | Berkas Lokal | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **`v1.5.3`** | 2026-09-09 | `^1.129.0`<br>*(Tested 1.136.1)* | Preset Midnight Studio, lavender softlight, validasi media & SHA-256 | [Download v1.5.3](https://github.com/dadayan1234/gradient-nitro/releases/download/v1.5.3/gradient-nitro-glass-1.5.3.vsix) | `release/gradient-nitro-glass-1.5.3.vsix` | `Latest Stable` |
+| **`v1.6.0`** | 2026-09-10 | `^1.80.0` | Perbaikan menu/submenu; PolyForm Noncommercial 1.0.0 | Belum dipublikasikan | `release/gradient-nitro-glass-1.6.0.vsix` | `Stable build` |
+| **`v1.5.3`** | 2026-09-09 | `^1.129.0`<br>*(Tested 1.136.1)* | Preset Midnight Studio, lavender softlight, validasi media & SHA-256 | [Download v1.5.3](https://github.com/dadayan1234/gradient-nitro/releases/download/v1.5.3/gradient-nitro-glass-1.5.3.vsix) | `release/gradient-nitro-glass-1.5.3.vsix` | `Last MIT release` |
 | **`v1.5.2`** | 2026-09-09 | `^1.129.0`<br>*(Tested 1.136.1)* | Lapisan Explorer & terminal transparan, kontras teks seleksi, Save & Apply side-menu | [Download v1.5.2](https://github.com/dadayan1234/gradient-nitro/releases/download/v1.5.2/gradient-nitro-glass-1.5.2.vsix) | `release/gradient-nitro-glass-1.5.2.vsix` | `Stable` |
 | **`v1.5.1`** | 2026-09-09 | `^1.129.0`<br>*(Tested 1.136.1)* | Perbaikan grid Modern UI, pengaturan Border (0–4px, warna, visibilitas) | [Download v1.5.1](https://github.com/dadayan1234/gradient-nitro/releases/download/v1.5.1/gradient-nitro-glass-1.5.1.vsix) | `release/gradient-nitro-glass-1.5.1.vsix` | `Stable` |
 | **`v1.5.0`** | 2026-09-08 | `^1.129.0`<br>*(Tested 1.136.1)* | Arsitektur visual versioned, drag controls, editor softlight, 5 preset OKLCH | [Download v1.5.0](https://github.com/dadayan1234/gradient-nitro/releases/download/v1.5.0/gradient-nitro-glass-1.5.0.vsix) | `release/gradient-nitro-glass-1.5.0.vsix` | `Stable` |
@@ -35,7 +36,7 @@ Dokumen ini menyajikan riwayat lengkap versi rilis **Gradient Nitro Glass**, log
 
 ## Log Fitur Terperinci (Detailed Feature Log)
 
-### 🌟 Versi 1.5.3 (2026-09-09) — *Latest Stable*
+### 🌟 Versi 1.5.3 (2026-09-09) — *Last MIT release*
 - **Midnight Studio Preset**: Memperkenalkan konfigurasi bawaan `Midnight Studio` (`#243B61` midnight indigo & `#51344F` plum dengan pencahayaan lembut lavender) yang dapat diimpor langsung melalui [docs/midnight-studio.gradient-nitro.json](midnight-studio.gradient-nitro.json).
 - **Validasi Rilis Terintegrasi**: Skrip verifikasi rilis otomatis `scripts/check-release.py` untuk memvalidasi keselarasan versi package/lockfile, struktur frame animasi GIF, validitas URL publik gambar HTTPS, serta menghitung berkas verifikasi SHA-256 (`release/gradient-nitro-glass-1.5.3.vsix.sha256`).
 - **Penyegaran Tangkapan Layar**: Memperbarui seluruh visual dokumentasi dan animasi dari satu konfigurasi rilis terpadu.

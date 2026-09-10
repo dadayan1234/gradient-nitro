@@ -2,10 +2,10 @@
   "name": "gradient-nitro-glass",
   "displayName": "Gradient Nitro Glass Theme",
   "description": "Purple-toned dark and light themes with a perceptual Base + Accent palette, editor softlight, and an interactive live Theme Studio.",
-  "version": "1.5.3",
+  "version": "1.6.0",
   "publisher": "dadayan1234",
   "icon": "icon.png",
-  "license": "MIT",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/dadayan1234/gradient-nitro.git"

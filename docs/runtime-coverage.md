@@ -1,5 +1,19 @@
 # Runtime coverage
 
+## 1.6.0 menu and license verification
+
+Verified on Windows on 2026-09-10:
+
+- VS Code 1.136.1: 60 installed-VSIX phases, 46 surface captures, 32 menubar checks, no failures. Evidence: `.vscode-test/parity-1789008595138`.
+- Antigravity 1.107.0: five focused installed-VSIX phases, four layer/contrast captures, 32 menubar checks, no failures. Evidence: `.vscode-test/parity-1789008469431`.
+- Each menu matrix covers File, Edit, Selection, View, Go, Run, Terminal and Help in dark/light modes with the native-layout setting off/on. Available submenus must open and accept pointer input. File > New Text File must create a new editor, which the test then closes. Antigravity's older host may ignore the newer native Modern UI setting.
+- The full VS Code suite also covers Preview > Save > Reload, Command Palette, editor context menu, tooltips, completion, signature help, Find, Peek, notifications, custom dialogs, border controls and side-menu Save actions.
+- All 53 unit tests, lint and theme generation passed. Linux was previously tested by the maintainer; this verification run used Windows.
+
+The reproduced failure was a menu item covered by Explorer's toolbar. Structural backdrop filters introduced stacking/containing contexts; legacy menus also nest fixed submenus inside menu items. Blur now lives on noninteractive pseudo-elements. Menu shells allow overflow, menu/dropdown owners retain stable coordinates, and shadow menu hosts receive shared tokens without the workbench background or isolation rule.
+
+Release validation checks the `PolyForm-Noncommercial-1.0.0` package and lock metadata plus the exact license asset referenced by the VSIX manifest. Both license files contain the complete SPDX-listed terms and the copyright notice. Versions through 1.5.3 retain MIT; the Contributor License Grant remains separate.
+
 ## 1.5.3 release verification
 
 The stable 1.5.3 build passed 53 unit tests, Studio browser interactions, lint, and 60 installed-VSIX integration phases with 46 surface captures. Integration evidence: `.vscode-test/parity-1788940967410`. Personal VS Code installation hashes remained unchanged.
