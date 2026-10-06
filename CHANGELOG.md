@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.6.1] - 2026-10-06
+
+- Add the importable Dark Purple full template to Theme Studio, preserving every visual setting from the supplied preset while keeping workbench runtime effects opt-in.
+- Fix Source Control and extension toolbar dropdowns being clipped or flickering when their owners receive hover/press transforms.
+- Exclude popup owners and nested menu rows from bubble motion, including reduced-motion overrides.
+- Restrict hover/focus highlights to the direct menu item so a hovered parent does not fill every submenu row.
+- Remove opaque menu wrapper backgrounds consistently in regular DOM and Shadow DOM while preserving translucent glass menu shells.
+- Add installed-package Git menu tests for sustained visibility, stable geometry, pointer access and Pull/Push submenus.
+
 ## [1.6.0] - 2026-09-10
 
 - Set package and store license metadata to PolyForm-Noncommercial-1.0.0 and include the complete license text. Releases through 1.5.3 retain MIT.

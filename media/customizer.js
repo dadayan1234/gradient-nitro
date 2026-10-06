@@ -40,6 +40,15 @@ engine.presets.forEach((preset,index) => {
     const title = document.createElement('strong'), description = document.createElement('small'); title.textContent = preset.name; description.textContent = preset.character;
     button.append(dots,title,description); button.addEventListener('click',() => modify({ baseColor: preset.baseColor, accentColor: preset.accentColor, themeMode: 'dark', ...(state.gradientMode==='auto'?{gradientStops:engine.deriveDefaultStops(preset.baseColor,preset.accentColor)}:{}) })); $('presets').append(button);
 });
+syntaxData.fullPresets.forEach(preset => {
+    const button = document.createElement('button'); button.className = 'preset full-preset'; button.dataset.fullPreset = preset.id; button.setAttribute('aria-pressed', 'false');
+    const dots = document.createElement('span'); dots.className = 'preset-dots';
+    for (const stop of [preset.visual.gradientStops[0], preset.visual.gradientStops.at(-1)]) { const dot = document.createElement('i'); dot.style.backgroundColor = stop.color; dots.append(dot); }
+    const title = document.createElement('strong'), description = document.createElement('small'); title.textContent = preset.name; description.textContent = preset.character;
+    button.append(dots, title, description);
+    button.addEventListener('click', () => modify({ ...clone(preset.visual), workbenchEffects: state.workbenchEffects }));
+    $('presets').prepend(button);
+});
 const files = [['app',0,true],['api',1,true],['core',1,true],['config.py',2],['database.py',2],['logging_config.py',2],['security.py',2],['modules',1,true],['services',1,true],['views',1,true],['main.py',2],['assets',0,true],['docs',0,true],['tests',0,true],['README.md',0],['pyproject.toml',0]];
 files.forEach(([name,indent,folder]) => {
     const row = document.createElement('button'); row.className = 'tree-row'; row.dataset.file = name; row.style.setProperty('--indent',indent); row.setAttribute('aria-pressed','false');
@@ -364,6 +373,7 @@ function render() {
     $('controls').hidden = state.controlsCollapsed; $('expandControls').hidden = !state.controlsCollapsed;
     document.querySelectorAll('[data-mode]').forEach(el => { const active = el.dataset.mode === state.themeMode; el.classList.toggle('active',active); el.setAttribute('aria-pressed',active); });
     document.querySelectorAll('[data-preset]').forEach(el => { const preset = engine.presets[el.dataset.preset], active = preset.baseColor === state.baseColor.toUpperCase() && preset.accentColor === state.accentColor.toUpperCase(); el.classList.toggle('active',active); el.setAttribute('aria-pressed',active); });
+    document.querySelectorAll('[data-full-preset]').forEach(el => { const preset = syntaxData.fullPresets.find(item => item.id === el.dataset.fullPreset); const current = config(); const active = Object.entries(preset.visual).every(([key, value]) => key === 'workbenchEffects' || JSON.stringify(current[key]) === JSON.stringify(value)); el.classList.toggle('active',active); el.setAttribute('aria-pressed',active); });
     for (const [selector,key,data,aria] of [['[data-activity]','activeActivityItem','activity','aria-pressed'],['[data-tab]','activeEditorTab','tab','aria-selected'],['[data-panel]','activePanel','panel','aria-selected'],['[data-file]','selectedExplorerItem','file','aria-pressed']]) document.querySelectorAll(selector).forEach(el => { const active = el.dataset[data] === state[key]; el.classList.toggle(data === 'file' ? 'selected' : 'active',active); el.setAttribute(aria,active); });
     $('sidebarTitle').textContent = { explorer: 'EXPLORER', search: 'SEARCH', source: 'SOURCE CONTROL', run: 'RUN AND DEBUG', extensions: 'EXTENSIONS' }[state.activeActivityItem];
     $('breadcrumbs').textContent = (state.activeEditorTab === 'main.py' ? 'app　›　views　›　' : state.activeEditorTab === 'config.py' ? 'app　›　core　›　' : 'sesa-pilot　›　')+state.activeEditorTab;

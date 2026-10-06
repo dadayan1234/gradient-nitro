@@ -12,6 +12,20 @@ exports.run=async(vscode,root,output,options={})=>{
   const api=require.cache[cached].exports;
   if(options.releasePreview){await require('./release-preview-runner.cjs').run(vscode,api,root,output,capture);return;}
   const defaults=api.getDefaultConfig();
+  if(options.menusOnly){
+   const git=vscode.extensions.getExtension('vscode.git');await git.activate();
+   for(let i=0;i<100&&!git.exports.getAPI(1).repositories.length;i++)await sleep(100);
+   assert.ok(git.exports.getAPI(1).repositories.length,'Local Git fixture detected');
+   await git.exports.getAPI(1).repositories[0].status();
+   for(const themeMode of ['dark','light'])for(const nativeModernUI of [false,true]){
+    const cfg=api.normalizeConfig({...defaults,themeMode,nativeModernUI,baseColor:themeMode==='light'?'#FAF7FF':'#120D24',workbenchEffects:true,glassBlur:24,borderWidth:3,motionStrength:1});
+    await api.applyCustomTheme(cfg);await sleep(1800);
+    await vscode.commands.executeCommand('workbench.view.scm');
+    await vscode.commands.executeCommand('notifications.clearAll');
+    for(const reducedMotion of [false,true])await capture('scm-menu-'+themeMode+'-'+(nativeModernUI?'modern':'classic')+(reducedMotion?'-reduced':''),{expected:cfg,reducedMotion});
+   }
+   fs.writeFileSync(control,JSON.stringify({phase:'complete'}));return;
+  }
   const distinctive=api.normalizeConfig({...defaults,workbenchEffects:true,roundedCorners:true,borderRadius:17,glassBlur:33,glassOpacity:.61,neonRadius:19,motionStrength:.73,motionSpring:.81,gradientMode:'custom',gradientAngle:0,gradientStrength:.6,gradientStops:[{id:'red',color:'#FF0000',position:0,opacity:.8,softness:.1},{id:'green',color:'#00FF00',position:50,opacity:.65,softness:.5},{id:'blue',color:'#0000FF',position:100,opacity:.85,softness:.9}]});
   const main=vscode.Uri.file(path.join(output,'workspace/main.ts')),definition=vscode.Uri.file(path.join(output,'workspace/config.ts'));
   const doc=await vscode.workspace.openTextDocument(main);await vscode.window.showTextDocument(doc,{preview:false});

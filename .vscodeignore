@@ -23,5 +23,6 @@ docs/images/**
 
 # Agent and CI instructions are development-only.
 .agents/**
+.opencode/**
 .github/**
 AGENTS.md

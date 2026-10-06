@@ -7,6 +7,12 @@ Untuk tabel riwayat versi rilis lengkap, log fitur per versi, dan panduan instal
 
 ---
 
+## Build 1.6.1 (2026-10-06)
+
+- Paket lokal: `release/gradient-nitro-glass-1.6.1.vsix` dan checksum `.vsix.sha256`.
+- Memperbaiki menu Git/Source Control yang berkedip atau terpotong dan latar menu VS Code yang menutupi efek kaca.
+- Verifikasi menu File?Help dan submenu Pull/Push di profil uji terisolasi.
+
 ## Build 1.6.0 (2026-09-10)
 
 - Paket lokal: `release/gradient-nitro-glass-1.6.0.vsix` dan checksum `.vsix.sha256`.
@@ -27,7 +33,7 @@ Untuk tabel riwayat versi rilis lengkap, log fitur per versi, dan panduan instal
 
 ### Cara Cepat Pasang VSIX dari Terminal
 ```bash
-code --install-extension release/gradient-nitro-glass-1.5.3.vsix
+code --install-extension release/gradient-nitro-glass-1.6.1.vsix
 ```
 
 > [!TIP]

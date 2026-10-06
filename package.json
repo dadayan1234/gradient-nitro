@@ -1,8 +1,8 @@
 {
   "name": "gradient-nitro-glass",
   "displayName": "Gradient Nitro Glass Theme",
-  "description": "Purple-toned dark and light themes with a perceptual Base + Accent palette, editor softlight, and an interactive live Theme Studio.",
-  "version": "1.6.0",
+  "description": "A clean gradient glass theme for VS Code and Antigravity: dark and light palettes, frosted panels, soft editor glow, and live customization.",
+  "version": "1.6.1",
   "publisher": "dadayan1234",
   "icon": "icon.png",
   "license": "PolyForm-Noncommercial-1.0.0",
@@ -17,20 +17,23 @@
     "Themes"
   ],
   "keywords": [
-    "gradient",
-    "glass",
-    "elegant",
-    "minimal",
-    "purple",
+    "gradient theme",
+    "glass theme",
+    "clean theme",
+    "frosted glass",
+    "minimal theme",
+    "vscode theme",
     "dark theme",
     "light theme",
     "glassmorphism",
-    "colorful",
+    "transparent theme",
+    "editor theme",
+    "softlight",
     "syntax highlighting",
-    "rounded",
-    "customizer",
+    "theme customizer",
+    "color theme",
     "antigravity",
-    "google-antigravity"
+    "antigravity theme"
   ],
   "activationEvents": [
     "onStartupFinished"

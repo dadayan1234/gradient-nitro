@@ -1,5 +1,12 @@
 # Runtime coverage
 
+## 1.6.1 popup regression
+
+The installed 1.6.1 VSIX passed 60 phases with 46 surface captures and 32 File–Help menu checks on VS Code 1.136.1 for Windows. Evidence: `.vscode-test/parity-1791251792556`. The focused Source Control/Git menu suite passed eight cases each on VS Code 1.136.1 (`.vscode-test/parity-1791191853948`) and Antigravity 1.107.0 (`.vscode-test/parity-1791251974872`), with no failures.
+
+The Git fixture contains a temporary local repository. It verifies that the overflow menu and Pull/Push submenu remain visible, translucent and clickable for 120 samples over roughly 3.6 seconds per case, across dark/light, classic/Modern UI and reduced-motion settings. The failure came from a motion scale on the toolbar item that owns a fixed Shadow DOM popup. Hover styles also reached every nested submenu row. The fix keeps popup owners free of scale/translation, clears menu wrapper backgrounds and scopes hover/focus color to the direct row.
+
+
 ## 1.6.0 menu and license verification
 
 Verified on Windows on 2026-09-10:

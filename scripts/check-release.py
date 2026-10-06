@@ -23,6 +23,10 @@ assert preview['gradientMode'] == 'custom' and len(preview['gradientStops']) == 
 assert preview['softlightEnabled'] and preview['editorSoftlight'] > 0
 preset = json.loads((root / 'docs/midnight-studio.gradient-nitro.json').read_text())
 assert preset['visual']['gradientStops'] == preview['gradientStops']
+dark_purple_bytes = (root / 'docs/dark-purple.gradient-nitro.json').read_bytes()
+dark_purple = json.loads(dark_purple_bytes)
+assert dark_purple['format'] == 'gradient-nitro' and dark_purple['formatVersion'] == 1
+assert len(dark_purple['visual']['gradientStops']) == 2
 
 gif_relative = re.search(r'!\[[^\]]*\]\((docs/images/[^)]+\.gif)\)', (root / 'README.md').read_text(encoding='utf-8')).group(1)
 gif = root / gif_relative
@@ -69,6 +73,7 @@ with zipfile.ZipFile(artifact) as archive:
     license_text = (root / 'LICENSE.md').read_bytes()
     assert license_text == (root / 'LICENSE').read_bytes()
     assert archive.read('extension/LICENSE.md') == license_text
+    assert archive.read('extension/docs/dark-purple.gradient-nitro.json') == dark_purple_bytes
     manifest = ET.fromstring(archive.read('extension.vsixmanifest'))
     assets = [a for a in manifest.iter() if a.attrib.get('Type') == 'Microsoft.VisualStudio.Services.Content.License']
     assert len(assets) == 1 and archive.read(assets[0].attrib['Path']) == license_text, 'Store license asset must contain PolyForm terms'

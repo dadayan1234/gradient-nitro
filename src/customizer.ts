@@ -5,6 +5,7 @@ import type * as vscode from 'vscode';
 import type { ThemeConfig } from './extension';
 import { syntaxPalette, syntaxRoles, languageScopes } from './syntax';
 import { syntaxSamples } from './samples';
+import { importPreset } from './preset';
 
 /** One small Webview, using the exact compiled palette module loaded by the extension. */
 export function customizerHtml(config: ThemeConfig, defaults: ThemeConfig, webview?: vscode.Webview, extensionUri?: vscode.Uri): string {
@@ -19,6 +20,9 @@ export function customizerHtml(config: ThemeConfig, defaults: ThemeConfig, webvi
     const css = fs.readFileSync(path.join(media, 'customizer.css'), 'utf8');
     const script = fs.readFileSync(path.join(media, 'customizer.js'), 'utf8');
     const html = fs.readFileSync(path.join(media, 'customizer.html'), 'utf8');
+    const darkPurple = importPreset(JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'docs', 'dark-purple.gradient-nitro.json'), 'utf8')));
+    const fullPresets = [{ id: 'dark-purple', name: 'Dark Purple', character: 'Complete workspace · soft purple glow', visual: darkPurple }];
+    Object.assign(syntax, { fullPresets });
 
     let logoUri = '';
     if (webview && typeof webview.asWebviewUri === 'function' && extensionUri && typeof extensionUri === 'object') {

@@ -11,6 +11,7 @@ Dokumen ini menyajikan riwayat lengkap versi rilis **Gradient Nitro Glass**, log
 
 | Versi | Tanggal Rilis | Target VS Code | Fitur Utama & Ringkasan Perubahan | Download VSIX (GitHub) | Berkas Lokal | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **`v1.6.1`** | 2026-10-06 | `^1.80.0` | Menu Git/Source Control dan menu utama transparan, stabil saat hover/submenu | Build lokal | `release/gradient-nitro-glass-1.6.1.vsix` | `Local bugfix build` |
 | **`v1.6.0`** | 2026-09-10 | `^1.80.0` | Perbaikan menu/submenu; PolyForm Noncommercial 1.0.0 | Belum dipublikasikan | `release/gradient-nitro-glass-1.6.0.vsix` | `Stable build` |
 | **`v1.5.3`** | 2026-09-09 | `^1.129.0`<br>*(Tested 1.136.1)* | Preset Midnight Studio, lavender softlight, validasi media & SHA-256 | [Download v1.5.3](https://github.com/dadayan1234/gradient-nitro/releases/download/v1.5.3/gradient-nitro-glass-1.5.3.vsix) | `release/gradient-nitro-glass-1.5.3.vsix` | `Last MIT release` |
 | **`v1.5.2`** | 2026-09-09 | `^1.129.0`<br>*(Tested 1.136.1)* | Lapisan Explorer & terminal transparan, kontras teks seleksi, Save & Apply side-menu | [Download v1.5.2](https://github.com/dadayan1234/gradient-nitro/releases/download/v1.5.2/gradient-nitro-glass-1.5.2.vsix) | `release/gradient-nitro-glass-1.5.2.vsix` | `Stable` |

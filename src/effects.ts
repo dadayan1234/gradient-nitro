@@ -29,6 +29,9 @@ export function buildEffects(input: ThemeConfig): string {
     const radius = cfg.roundedCorners ? cfg.borderRadius ?? 12 : 0;
     const borderWidth = cfg.borderEnabled ? cfg.borderWidth : 0;
     const floats = Object.values(registry.floating).flat();
+    // Fixed dropdowns may be mounted inside their trigger (including Shadow DOM).
+    // Neither their owners nor menu descendants may acquire a motion containing block.
+    const motion = registry.motion.map(selector => selector + ':not(.dropdown-action-container):not([aria-haspopup="true"]):not(:has(.monaco-dropdown, .dropdown-action-container, [aria-haspopup="true"])):not(.monaco-menu *)');
     const clear = [
         '> .monaco-grid-view',
         '.part.sidebar > .content', '.part.auxiliarybar > .content',
@@ -159,6 +162,9 @@ ${scope(floats.map(shell => `${shell} :is(${registry.popupContent.join(',')})`))
   background-color: transparent !important;
 }
 /* Legacy menus contain fixed submenus. Clipping or filtering the shell traps them. */
+${scope(['.monaco-menu-container', '.monaco-menu-container > .monaco-scrollable-element'])} {
+  background: transparent !important;
+}
 ${scope(['.monaco-menu'])} {
   position: relative; overflow: visible !important;
   backdrop-filter: none !important; isolation: isolate;
@@ -175,21 +181,21 @@ ${scope([...registry.navigation])} { border-radius: var(--gn-radius-medium) !imp
 ${scope(['.part.activitybar .action-item:hover'])} { background-color: ${p['accent-hover']} !important; }
 ${scope([...registry.activeSignals])} { filter: var(--gn-neon-filter) !important; }
 /* Explicit interaction surfaces keep labels readable over every gradient stop. */
-${scope(['.monaco-list-row:hover:not(.selected):not(.focused)', '.monaco-menu .action-item:not(.disabled):hover .action-menu-item', '.monaco-toolbar .action-item:not(.disabled):hover', '.tab:hover', '.part.activitybar .action-item:hover'])} {
+${scope(['.monaco-list-row:hover:not(.selected):not(.focused)', '.monaco-menu .action-item:not(.disabled):hover > .action-menu-item', '.monaco-toolbar .action-item:not(.disabled):hover', '.tab:hover', '.part.activitybar .action-item:hover'])} {
   background-color: ${p.hover} !important; color: ${p['interaction-foreground']} !important;
 }
-${scope(['.monaco-list-row.selected', '.monaco-list-row.focused', '.monaco-menu .action-item.focused .action-menu-item', '.monaco-menu .action-item .action-menu-item:focus', '.tab.active', '.part.activitybar .action-item.checked', '.part.panel .composite-bar .action-item.checked'])} {
+${scope(['.monaco-list-row.selected', '.monaco-list-row.focused', '.monaco-menu .action-item.focused > .action-menu-item', '.monaco-menu .action-item > .action-menu-item:focus', '.tab.active', '.part.activitybar .action-item.checked', '.part.panel .composite-bar .action-item.checked'])} {
   background-color: ${p.selection} !important; color: ${p['interaction-foreground']} !important;
 }
-${scope(['.monaco-list-row:is(:hover,.selected,.focused) .label-name', '.monaco-list-row:is(:hover,.selected,.focused) .monaco-icon-label', '.monaco-menu .action-item:is(:hover,.focused) .action-label', '.tab:is(:hover,.active) .label-name', '.part.panel .composite-bar .action-item.checked .action-label'])} {
+${scope(['.monaco-list-row:is(:hover,.selected,.focused) .label-name', '.monaco-list-row:is(:hover,.selected,.focused) .monaco-icon-label', '.monaco-menu .action-item:is(:hover,.focused) > .action-menu-item > .action-label', '.tab:is(:hover,.active) .label-name', '.part.panel .composite-bar .action-item.checked .action-label'])} {
   color: ${p['interaction-foreground']} !important;
 }
 /* BUBBLE MOTION */
 ${cfg.motionEnabled ? `@media (prefers-reduced-motion: no-preference) {
-  ${scope([...registry.motion])} { transition: scale var(--gn-motion-duration) var(--gn-motion-easing), translate var(--gn-motion-duration) var(--gn-motion-easing) !important; transform-origin: center; }
-  ${scope(registry.motion.map(s => s + ':hover'))} { scale: var(--gn-motion-hover) !important; translate: 0 calc(-1 * var(--gn-motion-lift)) !important; }
-  ${scope(registry.motion.map(s => s + ':active'))} { scale: var(--gn-motion-press) !important; translate: 0 0 !important; }
+  ${scope(motion)} { transition: scale var(--gn-motion-duration) var(--gn-motion-easing), translate var(--gn-motion-duration) var(--gn-motion-easing) !important; transform-origin: center; }
+  ${scope(motion.map(s => s + ':hover'))} { scale: var(--gn-motion-hover) !important; translate: 0 calc(-1 * var(--gn-motion-lift)) !important; }
+  ${scope(motion.map(s => s + ':active'))} { scale: var(--gn-motion-press) !important; translate: 0 0 !important; }
 }` : ''}
-@media (prefers-reduced-motion: reduce) { ${scope([...registry.motion])} { transition: none !important; scale: 1 !important; translate: none !important; } }
+@media (prefers-reduced-motion: reduce) { ${scope(motion)} { transition: none !important; scale: 1 !important; translate: none !important; } }
 `;
 }

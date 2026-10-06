@@ -18,6 +18,7 @@ const surfaces={quick:'.quick-input-widget',menu:'.monaco-menu','activity-hover'
  fs.mkdirSync(path.join(output,'profile/User'),{recursive:true});fs.mkdirSync(path.join(output,'workspace'),{recursive:true});
  fs.writeFileSync(path.join(output,'workspace/main.ts'),`import { createApplication } from './config';\n\n// Gradient Nitro â€” runtime parity fixture\nconst settings = { port: 8000, debug: false };\nconst app = createApplication("sesa-pilot", settings.port);\n\napp.\napp.start();\n\nconsole.log("Application ready", settings);\n`);
  fs.writeFileSync(path.join(output,'workspace/config.ts'),`/** Create a service with its own lifecycle. */\nexport function createApplication(name: string, port: number) {\n    return { name, port, start() { return Promise.resolve(); } };\n}\n`);
+ if(process.argv.includes('--menus-only')){const git=cp.spawnSync('git',['init'],{cwd:path.join(output,'workspace'),encoding:'utf8',windowsHide:true});assert.equal(git.status,0,git.stderr);}
  const profile=path.join(output,'profile'),extensions=path.join(output,'extensions');
  if(antigravity){
   // Fresh offline UI fixture: skip account onboarding without copying any personal state.
@@ -27,14 +28,14 @@ const surfaces={quick:'.quick-input-widget',menu:'.monaco-menu','activity-hover'
   db.exec('CREATE TABLE IF NOT EXISTS ItemTable (key TEXT UNIQUE ON CONFLICT REPLACE, value BLOB)');
   db.prepare('INSERT INTO ItemTable VALUES (?, ?)').run('antigravityOnboarding','true');db.close();
  }
- fs.writeFileSync(path.join(profile,'User/settings.json'),JSON.stringify({'window.titleBarStyle':'custom','window.dialogStyle':'custom','window.menuBarVisibility':'classic','workbench.startupEditor':'none','workbench.colorTheme':'Default Dark Modern','security.workspace.trust.enabled':false,'telemetry.telemetryLevel':'off','update.mode':'none','extensions.autoUpdate':false,'chat.disableAIFeatures':true,'editor.hover.delay':150,'workbench.hover.delay':150,'editor.quickSuggestions':false,'editor.fontSize':14,'editor.lineHeight':25,'editor.minimap.enabled':true,'git.enabled':false}));
+ fs.writeFileSync(path.join(profile,'User/settings.json'),JSON.stringify({'window.titleBarStyle':'custom','window.dialogStyle':'custom','window.menuBarVisibility':'classic','workbench.startupEditor':'none','workbench.colorTheme':'Default Dark Modern','security.workspace.trust.enabled':false,'telemetry.telemetryLevel':'off','update.mode':'none','extensions.autoUpdate':false,'chat.disableAIFeatures':true,'editor.hover.delay':150,'workbench.hover.delay':150,'editor.quickSuggestions':false,'editor.fontSize':14,'editor.lineHeight':25,'editor.minimap.enabled':true,'git.enabled':process.argv.includes('--menus-only'),'git.autofetch':false}));
  const cli=cp.spawnSync(executable,[path.join(appRoot,'out/cli.js'),'--user-data-dir='+profile,'--extensions-dir='+extensions,'--install-extension',path.join(root,'release','gradient-nitro-glass-'+packageVersion+'.vsix'),'--force'],{env:{...process.env,ELECTRON_RUN_AS_NODE:'1'},encoding:'utf8',windowsHide:true,timeout:60000});
  assert.equal(cli.status,0,cli.stderr||cli.stdout);
  const target=path.join(extensions,'dadayan1234.gradient-nitro-glass-'+packageVersion);assert.ok(fs.existsSync(path.join(target,'out/config.js')),'Latest packaged canonical configuration present');
  await require('../out/runtime').installRuntime(appRoot,target,path.join(output,'backups'),true);
  const qa=path.join(extensions,'local.nitro-parity-1.0.0');fs.mkdirSync(qa,{recursive:true});
  fs.writeFileSync(path.join(qa,'package.json'),JSON.stringify({name:'nitro-parity',publisher:'local',version:'1.0.0',engines:{vscode:'^1.80.0'},main:'index.js',activationEvents:['onStartupFinished']}));
- fs.writeFileSync(path.join(qa,'index.js'),`exports.activate=()=>{setTimeout(()=>require(${JSON.stringify(path.join(root,'tests/parity-runner.cjs'))}).run(require('vscode'),${JSON.stringify(root)},${JSON.stringify(output)}, {surfacesOnly: ${process.argv.includes('--surfaces-only')}, releasePreview: ${process.argv.includes('--release-preview')}}),1800);};`);
+ fs.writeFileSync(path.join(qa,'index.js'),`exports.activate=()=>{setTimeout(()=>require(${JSON.stringify(path.join(root,'tests/parity-runner.cjs'))}).run(require('vscode'),${JSON.stringify(root)},${JSON.stringify(output)}, {menusOnly: ${process.argv.includes('--menus-only')}, surfacesOnly: ${process.argv.includes('--surfaces-only')}, releasePreview: ${process.argv.includes('--release-preview')}}),1800);};`);
  const extensionIndex=path.join(extensions,'extensions.json'),entries=JSON.parse(fs.readFileSync(extensionIndex));
  entries.push({identifier:{id:'local.nitro-parity'},version:'1.0.0',location:{$mid:1,scheme:'file',path:'/'+qa.replaceAll('\\','/')},relativeLocation:path.basename(qa)});
  fs.writeFileSync(extensionIndex,JSON.stringify(entries));
@@ -50,7 +51,7 @@ const surfaces={quick:'.quick-input-widget',menu:'.monaco-menu','activity-hover'
    if(state.phase==='complete'){fs.writeFileSync(path.join(output,'results.json'),JSON.stringify(results,null,2));assert.deepEqual(results.failures,[]);console.log('Packaged VSIX parity passed:',results.phases.length,'phases;',Object.keys(results.surfaces).length,'surface captures.',output);return;}
    if(state.phase==='starting'||state.done){await sleep(250);continue;}
    await sleep(400);const phase=state.phase;
-   if(antigravity && ['studio-save','parity-reloaded'].includes(phase)){
+   if(antigravity && (['studio-save','parity-reloaded'].includes(phase)||phase.startsWith('scm-menu-'))){
     const setupDialog=page.locator('.monaco-dialog-box').filter({visible:true});
     if(await setupDialog.count()){
      console.log('Offline fixture startup dialog:',await setupDialog.innerText());
@@ -62,6 +63,41 @@ const surfaces={quick:'.quick-input-widget',menu:'.monaco-menu','activity-hover'
    if(state.expected){
     await page.waitForFunction(expected=>JSON.stringify(window.__gradientNitroVisualConfig)===JSON.stringify(expected),state.expected,{timeout:20000});
     assert.deepEqual(await page.evaluate(()=>window.__gradientNitroVisualConfig),state.expected,'Bridge configuration equality '+phase);
+   }
+   if(phase.startsWith('scm-menu-')){
+    await page.emulateMedia({reducedMotion:state.reducedMotion?'reduce':'no-preference'});
+    const buttons=await page.locator('.part.sidebar .action-label').evaluateAll(nodes=>nodes.map(n=>({label:n.getAttribute('aria-label'),title:n.title,cls:n.className,html:n.parentElement.outerHTML.slice(0,1200)})));
+    fs.writeFileSync(path.join(output,phase+'-buttons.json'),JSON.stringify(buttons,null,2));
+    const repositoryPane=page.locator('.part.sidebar .pane').filter({has:page.locator('.scm-input')}).first();
+    await repositoryPane.locator('.pane-header').hover();
+    const more=repositoryPane.locator('.pane-header .action-label[aria-label="More Actions..."]');
+    await page.keyboard.press('Escape');await more.click();await sleep(500);
+    const menu=page.locator('.monaco-menu').filter({visible:true}).last();await menu.waitFor();
+    await menu.locator('.action-item:not(.disabled) > .action-menu-item').first().hover();
+    const menuHandle=await menu.elementHandle();
+    fs.writeFileSync(path.join(output,phase+'-ancestors.json'),JSON.stringify(await more.evaluate(el=>{const rows=[];for(let p=el;p;p=p.parentElement){const s=getComputedStyle(p);rows.push({cls:p.className,scale:s.scale,translate:s.translate,transform:s.transform,overflow:s.overflow,filter:s.filter,html:p.matches('.action-item')?p.outerHTML.slice(0,2000):undefined});}return rows;}),null,2));
+    const frames=await menu.evaluate(async el=>{
+     const rows=[];for(let i=0;i<120;i++){await new Promise(r=>setTimeout(r,30));const b=el.getBoundingClientRect();const s=getComputedStyle(el);const anchor=el.querySelector('.action-item:not(.disabled) > .action-menu-item');if(!el.isConnected||!anchor){rows.push({connected:el.isConnected,missingRow:true});break;}const a=anchor.getBoundingClientRect();let hit=document.elementFromPoint(a.x+a.width/2,a.y+a.height/2);while(hit?.shadowRoot){const next=hit.shadowRoot.elementFromPoint(a.x+a.width/2,a.y+a.height/2);if(!next||next===hit)break;hit=next;}rows.push({x:b.x,y:b.y,w:b.width,h:b.height,bg:s.backgroundColor,connected:el.isConnected,hit:el.contains(hit)});}return rows;
+    });
+    fs.writeFileSync(path.join(output,phase+'-frames.json'),JSON.stringify(frames,null,2));
+    fs.writeFileSync(path.join(output,phase+'-dom.html'),await menuHandle.evaluate(el=>el.getRootNode() instanceof ShadowRoot?el.getRootNode().innerHTML:el.parentElement?.outerHTML||el.outerHTML));
+    await page.screenshot({path:path.join(output,phase+'-open.png')});
+    assert.ok(frames.every(f=>f.connected&&f.hit&&['x','y','w','h'].every(k=>Math.abs(f[k]-frames[0][k])<1)),'Menu must remain visible and stable: '+JSON.stringify([frames[0],frames.at(-1)]));
+    assert.match(frames[0].bg,/rgba\(/,'Menu glass must be translucent');
+    const wrappers=await menu.evaluate(el=>{const rows=[];for(let p=el.parentElement;p;p=p.parentElement){rows.push(getComputedStyle(p).backgroundColor);if(p.matches('.monaco-menu-container'))break;}return rows;});
+    assert.ok(wrappers.every(bg=>bg==='rgba(0, 0, 0, 0)'),'Opaque menu wrapper: '+JSON.stringify(wrappers));
+    await menu.locator('.action-item:not(.disabled) > .action-menu-item').first().click({trial:true,timeout:3000});
+    const pullPush=menu.getByRole('menuitem',{name:'Pull, Push',exact:true});
+    await pullPush.hover();await sleep(800);
+    const child=page.locator('.monaco-menu').filter({visible:true}).last();
+    assert.ok(await page.locator('.monaco-menu').filter({visible:true}).count()>1,'Pull/Push submenu opens');
+    await child.locator('.action-item:not(.disabled) > .action-menu-item').first().click({trial:true,timeout:3000});
+    const idleRow=child.locator('.action-item:not(:hover):not(.focused) > .action-menu-item').last();
+    assert.equal(await idleRow.evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)','Hovering a parent must not fill every submenu row');
+    await page.screenshot({path:path.join(output,phase+'-submenu.png')});
+    await page.keyboard.press('Escape');
+    results.surfaces[phase]={frames:frames.length,stable:true,translucent:true,submenuPointerAccess:true};
+    await page.keyboard.press('Escape');
    }
    if(phase.startsWith('release-')){
     assert.equal(state.expected.gradientStops.length,2,'Release previews use exactly two stops');
@@ -137,6 +173,10 @@ const surfaces={quick:'.quick-input-widget',menu:'.monaco-menu','activity-hover'
      await page.screenshot({path:path.join(output,phase+'-menubar-'+name+'.png')});
      const item=menu.locator('.action-item:not(.disabled) > .action-menu-item').first();
      await item.click({trial:true,timeout:3000});
+     const paint=await menu.evaluate(el=>({background:getComputedStyle(el).backgroundColor,scale:getComputedStyle(el.querySelector('.action-item')).scale,wrappers:[el.parentElement,el.closest('.monaco-menu-container')].filter(Boolean).map(p=>getComputedStyle(p).backgroundColor)}));
+     assert.match(paint.background,/rgba\(/,'Translucent menubar '+name);
+     assert.equal(paint.scale,'none','Menu rows must not inherit toolbar motion');
+     assert.ok(paint.wrappers.every(bg=>bg==='rgba(0, 0, 0, 0)'),'Transparent menubar wrappers: '+JSON.stringify(paint));
      const submenu=menu.locator('.action-item:not(.disabled) > .action-menu-item[aria-haspopup="true"]').first();
      const hasSubmenu=!!await submenu.count();
      if(hasSubmenu){
@@ -179,8 +219,13 @@ const surfaces={quick:'.quick-input-widget',menu:'.monaco-menu','activity-hover'
    }
    if(phase.startsWith('motion-')||phase.startsWith('spring-')){
     const item=page.locator('.part.activitybar .action-item').first();await item.hover();await sleep(500);
-    const actual=await item.evaluate(el=>{const s=getComputedStyle(el);return{scale:s.scale,duration:s.transitionDuration,easing:s.transitionTimingFunction};});
     const motion=require('../out/palette').deriveMotion(state.expected);
+    let actual;
+    for(let attempt=0;attempt<30;attempt++){
+     actual=await item.evaluate(el=>{const s=getComputedStyle(el);return{scale:s.scale,duration:s.transitionDuration,easing:s.transitionTimingFunction};});
+     if(Math.abs(parseFloat(actual.scale)-motion.hoverScale)<.0002)break;
+     await sleep(100);
+    }
     assert.ok(Math.abs(parseFloat(actual.scale)-motion.hoverScale)<.0002,JSON.stringify(actual));
     assert.ok(actual.duration.includes((motion.duration/1000)+'s'),JSON.stringify(actual));
     const box=await item.boundingBox();await page.mouse.move(box.x+box.width/2,box.y+box.height/2);await page.mouse.down();await sleep(500);
